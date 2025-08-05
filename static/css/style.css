@@ -7,41 +7,110 @@ Styles généraux
     --success-color: #2ecc71;
 }
 
+/* Variables de couleurs */
+:root {
+    --primary-color: #2c3e50;
+    --secondary-color: #1a73e8;
+    --light-color: #f8f9fa;
+    --dark-color: #1a1a2e;
+    --success-color: #28a745;
+    --text-color: #333;
+    --text-light: #6c757d;
+    --white: #ffffff;
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     line-height: 1.6;
-    color: #333;
-    background-color: #f8f9fa;
+    color: var(--text-color);
+    background-color: var(--white);
     min-height: 100vh;
     display: flex;
     flex-direction: column;
 }
 
+/* Styles pour la navbar */
+.navbar {
+    background-color: var(--primary-color) !important;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.navbar-brand, 
+.navbar-nav .nav-link {
+    color: var(--white) !important;
+}
+
+.navbar-nav .nav-link:hover {
+    color: var(--secondary-color) !important;
+    opacity: 0.9;
+}
+
+/* Styles pour les boutons */
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: var(--white) !important;
+}
+
+.btn-primary:hover {
+    background-color: #1a2a3a;
+    border-color: #1a2a3a;
+}
+
+.btn-success {
+    background-color: var(--success-color);
+    border-color: var(--success-color);
+    color: var(--white) !important;
+}
+
+.btn-success:hover {
+    background-color: #218838;
+    border-color: #1e7e34;
+}
+
+/* Amélioration du contraste pour les textes */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--dark-color);
+}
+
+.text-muted {
+    color: var(--text-light) !important;
+}
+
 /* Styles pour la zone de dépôt */
 .upload-area {
-    border: 2px dashed #ced4da;
+    border: 2px dashed var(--primary-color);
     border-radius: 10px;
     padding: 2rem;
     text-align: center;
-    background-color: #fff;
+    background-color: var(--white);
     transition: all 0.3s ease;
     cursor: pointer;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
 .upload-area:hover,
 .upload-area.dragover {
-    border-color: #0d6efd;
-    background-color: #f8f9ff;
+    border-color: var(--secondary-color);
+    background-color: #f0f7ff;
 }
 
 .upload-area i {
-    color: #6c757d;
-    transition: transform 0.3s ease;
+    color: var(--primary-color);
+    transition: all 0.3s ease;
+    margin-bottom: 1rem;
 }
 
 .upload-area:hover i {
     transform: translateY(-5px);
+    color: var(--secondary-color);
+}
+
+.upload-area h5 {
+    color: var(--dark-color);
+    margin-bottom: 1rem;
+    font-weight: 600;
 }
 
 /* Styles pour la prévisualisation d'image */

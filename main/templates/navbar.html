@@ -11,13 +11,13 @@
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item">
-                    <a class="nav-link active" href="">Accueil</a>
+                    <a class="nav-link active" href="{% url 'home' %}">Accueil</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="">detecter une plaque</a>
+                    <a class="nav-link" href="{% url 'detection:detect_home' %}">detecter une plaque</a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="">À propos</a>
+                    <a class="nav-link {% if active_page == 'about' %}active{% endif %}" href="{% url 'about' %}">À propos</a>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link" href="">Contact</a>

@@ -36,8 +36,8 @@
                     <div class="card shadow-sm border-0 rounded-3 overflow-hidden">
                         <div class="card-body p-4 p-md-5">
                             <div class="text-center mb-4">
-                                <h2 class="h3 mb-3">Téléverser une image</h2>
-                                <p class="text-muted">Sélectionnez une image contenant une plaque d'immatriculation pour l'analyser</p>
+                                <h2 class="h3 mb-3">Téléverser un média</h2>
+                                <p class="text-muted">Sélectionnez une image ou une vidéo contenant une plaque d'immatriculation</p>
                             </div>
                             
                             <form id="uploadForm" method="post" enctype="multipart/form-data">
@@ -45,19 +45,33 @@
                                 <div class="mb-4">
                                     <div class="upload-area p-4 p-lg-5 text-center" id="dropArea">
                                         <i class="fas fa-cloud-upload-alt fa-3x mb-3 text-primary"></i>
-                                        <h5 class="mb-2">Glissez-déposez votre image ici</h5>
+                                        <h5 class="mb-2">Glissez-déposez votre fichier ici</h5>
                                         <p class="text-muted mb-3">ou</p>
-                                        <label for="imageInput" class="btn btn-primary px-4">
-                                            <i class="fas fa-folder-open me-2"></i>Parcourir les fichiers
-                                            <input type="file" id="imageInput" name="image" accept="image/*" hidden>
-                                        </label>
-                                        <p class="small text-muted mt-3 mb-0">Formats supportés: JPG, JPEG, PNG (max 5MB)</p>
+                                        <div class="d-flex justify-content-center gap-3">
+                                            <label for="mediaInput" class="btn btn-primary px-4">
+                                                <i class="fas fa-folder-open me-2"></i>Parcourir
+                                                <input type="file" id="mediaInput" name="media" accept="image/*,video/*" hidden>
+                                            </label>
+                                        </div>
+                                        <p class="small text-muted mt-3 mb-0">Formats supportés: JPG, JPEG, PNG, MP4, AVI, MOV (max 50MB)</p>
                                     </div>
                                     <div id="preview" class="mt-4 text-center"></div>
                                 </div>
-                                <div class="d-grid">
+                                <div class="d-grid mt-4">
+                                    <div class="form-check form-check-inline justify-content-center mb-3">
+                                        <input class="form-check-input" type="radio" name="mediaType" id="imageType" value="image" checked>
+                                        <label class="form-check-label ms-2" for="imageType">
+                                            <i class="fas fa-image me-1"></i> Image
+                                        </label>
+                                    </div>
+                                    <div class="form-check form-check-inline justify-content-center mb-3">
+                                        <input class="form-check-input" type="radio" name="mediaType" id="videoType" value="video">
+                                        <label class="form-check-label ms-2" for="videoType">
+                                            <i class="fas fa-video me-1"></i> Vidéo
+                                        </label>
+                                    </div>
                                     <button type="submit" class="btn btn-primary btn-lg">
-                                        <i class="fas fa-search me-2"></i>Détecter la plaque
+                                        <i class="fas fa-search me-2"></i>Analyser le média
                                     </button>
                                 </div>
                             </form>

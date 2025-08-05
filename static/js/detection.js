@@ -1,9 +1,27 @@
 document.addEventListener('DOMContentLoaded', function() {
     const dropArea = document.getElementById('dropArea');
-    const fileInput = document.getElementById('imageInput');
+    const mediaInput = document.getElementById('mediaInput');
     const preview = document.getElementById('preview');
     const uploadForm = document.getElementById('uploadForm');
     const resultsSection = document.getElementById('resultsSection');
+    const mediaTypeRadios = document.querySelectorAll('input[name="mediaType"]');
+    
+    // Mettre à jour l'acceptation du fichier en fonction du type de média sélectionné
+    function updateFileAcceptance() {
+        const selectedType = document.querySelector('input[name="mediaType"]:checked').value;
+        mediaInput.accept = selectedType === 'image' ? 'image/*' : 'video/*';
+        // Réinitialiser la prévisualisation et l'input de fichier lors du changement de type
+        preview.innerHTML = '';
+        mediaInput.value = '';
+    }
+    
+    // Écouter les changements de type de média
+    mediaTypeRadios.forEach(radio => {
+        radio.addEventListener('change', updateFileAcceptance);
+    });
+    
+    // Initialiser l'acceptation des fichiers
+    updateFileAcceptance();
 
     // Gestion du glisser-déposer
     ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -33,52 +51,72 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Gestion du dépôt de fichier
     dropArea.addEventListener('drop', handleDrop, false);
-    fileInput.addEventListener('change', handleFiles);
+    mediaInput.addEventListener('change', handleFiles);
 
     function handleDrop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        
         const dt = e.dataTransfer;
         const files = dt.files;
-        handleFiles({ target: { files } });
+        if (files.length) {
+            handleFiles({ target: { files } });
+        }
     }
 
     function handleFiles(e) {
         const files = e.target.files;
         if (files.length) {
             const file = files[0];
-            if (file.type.startsWith('image/')) {
+            const selectedType = document.querySelector('input[name="mediaType"]:checked').value;
+            
+            // Vérifier le type de fichier en fonction de la sélection
+            if ((selectedType === 'image' && file.type.startsWith('image/')) ||
+                (selectedType === 'video' && file.type.startsWith('video/'))) {
                 displayPreview(file);
             } else {
-                alert('Veuillez sélectionner un fichier image valide (JPG, JPEG, PNG)');
+                const fileType = selectedType === 'image' ? 'image (JPG, JPEG, PNG)' : 'vidéo (MP4, AVI, MOV)';
+                alert(`Veuillez sélectionner un fichier ${fileType} valide`);
+                mediaInput.value = ''; // Réinitialiser l'input
             }
         }
     }
 
-    // Affichage de l'aperçu de l'image
+    // Affichage de l'aperçu du média
     function displayPreview(file) {
-        const reader = new FileReader();
+        preview.innerHTML = '';
         
-        reader.onload = function(e) {
-            const img = document.createElement('img');
-            img.src = e.target.result;
-            img.alt = 'Aperçu de l\'image';
-            img.className = 'img-fluid';
-            
-            preview.innerHTML = '';
-            preview.appendChild(img);
-            
-            // Afficher la section des résultats si elle était masquée
+        if (file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = document.createElement('img');
+                img.src = e.target.result;
+                img.alt = 'Aperçu de l\'image';
+                img.className = 'img-fluid rounded shadow-sm';
+                img.style.maxHeight = '300px';
+                preview.appendChild(img);
+                resultsSection.style.display = 'none';
+            };
+            reader.readAsDataURL(file);
+        } 
+        else if (file.type.startsWith('video/')) {
+            const video = document.createElement('video');
+            video.src = URL.createObjectURL(file);
+            video.controls = true;
+            video.className = 'img-fluid rounded shadow-sm';
+            video.style.maxHeight = '300px';
+            preview.appendChild(video);
             resultsSection.style.display = 'none';
-        };
-        
-        reader.readAsDataURL(file);
+        }
     }
 
     // Soumission du formulaire
     uploadForm.addEventListener('submit', function(e) {
         e.preventDefault();
         
-        if (!fileInput.files.length) {
-            alert('Veuillez sélectionner une image à analyser');
+        if (!mediaInput.files.length) {
+            const selectedType = document.querySelector('input[name="mediaType"]:checked').value;
+            alert(`Veuillez sélectionner une ${selectedType} à analyser`);
             return;
         }
         
@@ -87,8 +125,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Afficher un indicateur de chargement
         const submitBtn = uploadForm.querySelector('button[type="submit"]');
         const originalBtnText = submitBtn.innerHTML;
+        const selectedType = document.querySelector('input[name="mediaType"]:checked').value;
         submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Traitement en cours...';
+        submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Analyse ${selectedType === 'image' ? 'de l\'image' : 'de la vidéo'}...`;
         
         // Envoyer la requête AJAX
         fetch(uploadForm.action, {
