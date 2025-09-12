@@ -7,7 +7,8 @@ app_name = "detection"
 
 urlpatterns = [
     path('', views.detect_home, name='detect_home'),
-    # path('dd', views.detect_vehicle, name="dd")
+    path('save-corrected-plates/', views.save_corrected_plates, name='save_corrected_plates'),
+    path('extract-manual-plate/', views.extract_manual_plate, name='extract_manual_plate'),
 ]
 
 # Ajouter le support pour les fichiers média en développement

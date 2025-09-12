@@ -1,176 +1,236 @@
+import os
 import cv2
 import numpy as np
 import easyocr
+import torch
 from ultralytics import YOLO
-import os
+from django.conf import settings
+import re
+
 
 class CarDetector:
     def __init__(self):
-        # Charger le modèle YOLO pour la détection de voitures
-        self.car_model = YOLO('yolov8n.pt')  # Modèle pré-entraîné sur COCO
+        """Initialise le détecteur avec les modèles YOLO"""
+        # Chemins vers les modèles
+        self.vehicle_model_path = os.path.join(settings.BASE_DIR, 'yolov8n.pt')
+        self.plate_model_path = os.path.join(settings.BASE_DIR, 'best.pt')
         
-        # Charger le modèle pour la détection de plaques d'immatriculation
-        # Note: Vous devrez peut-être télécharger un modèle spécifique pour les plaques
-        self.plate_model = YOLO('yolov8n.pt')  # À remplacer par un modèle spécifique si disponible
+        # Vérifier que les modèles existent
+        if not os.path.exists(self.vehicle_model_path):
+            raise FileNotFoundError(f"Modèle véhicule non trouvé: {self.vehicle_model_path}")
+        if not os.path.exists(self.plate_model_path):
+            raise FileNotFoundError(f"Modèle plaque non trouvé: {self.plate_model_path}")
         
-        # Initialiser le lecteur OCR pour l'extraction de texte
-        self.reader = easyocr.Reader(['fr'])
+        # Charger les modèles
+        self.vehicle_model = YOLO(self.vehicle_model_path)
+        self.plate_model = YOLO(self.plate_model_path)
+        
+        # Initialiser EasyOCR
+        self.ocr_reader = easyocr.Reader(['en'], gpu=torch.cuda.is_available())
+        
+        # Classes de véhicules COCO
+        self.vehicle_classes = [2, 3, 5, 7]  # car, motorcycle, bus, truck
     
-    def detect_cars(self, image_path):
-        """
-        Détecte les voitures dans une image
-        Retourne l'image avec les boîtes englobantes et la liste des voitures détectées
-        """
-        # Lire l'image
-        image = cv2.imread(image_path)
-        if image is None:
-            raise ValueError("Impossible de charger l'image")
+    def detect_vehicles(self, image):
+        """Détecte les véhicules"""
+        results = self.vehicle_model(image, conf=0.4, verbose=False)
+        vehicles = []
         
-        # Détecter les voitures (classe 2: voiture, 5: bus, 7: camion dans COCO)
-        results = self.car_model(image, classes=[2, 5, 7])
+        for result in results:
+            if result.boxes is not None:
+                for box in result.boxes:
+                    class_id = int(box.cls[0])
+                    if class_id in self.vehicle_classes:
+                        x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
+                        confidence = float(box.conf[0])
+                        
+                        vehicles.append({
+                            'bbox': [x1, y1, x2, y2],
+                            'confidence': confidence,
+                            'class_id': class_id
+                        })
         
-        # Liste pour stocker les coordonnées des voitures détectées
-        cars = []
-        
-        # Dessiner les boîtes englobantes et extraire les régions d'intérêt
-        for result in results[0].boxes.data.tolist():
-            x1, y1, x2, y2, score, class_id = result
-            if score > 0.5:  # Seuil de confiance
-                cars.append({
-                    'box': (int(x1), int(y1), int(x2), int(y2)),
-                    'score': float(score),
-                    'class_id': int(class_id)
-                })
-                # Dessiner la boîte englobante
-                cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), (0, 255, 0), 2)
-        
-        return image, cars
+        return vehicles
     
-    def detect_plate(self, car_image):
-        """
-        Détecte les plaques d'immatriculation dans une image de voiture
-        """
-        # Redimensionner l'image pour un traitement plus rapide et plus stable
-        height, width = car_image.shape[:2]
-        scale = 600.0 / width
-        resized = cv2.resize(car_image, (600, int(height * scale)))
+    def detect_plates(self, vehicle_region):
+        """Détecte les plaques dans une région"""
+        results = self.plate_model(vehicle_region, conf=0.25, verbose=False)
+        plates = []
         
-        # Convertir en niveaux de gris
-        gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
-        
-        # Améliorer le contraste avec CLAHE (Contrast Limited Adaptive Histogram Equalization)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
-        gray = clahe.apply(gray)
-        
-        # Réduire le bruit avec un flou bilatéral qui préserve les bords
-        blurred = cv2.bilateralFilter(gray, 11, 17, 17)
-        
-        # Détection des bords avec Canny
-        edges = cv2.Canny(blurred, 30, 200)
-        
-        # Trouver les contours
-        contours, _ = cv2.findContours(edges.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        
-        # Trier les contours par aire (du plus grand au plus petit) et ne garder que les plus grands
-        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:10]
-        
-        # Chercher la plaque (un rectangle avec un bon ratio largeur/hauteur)
-        plate_contour = None
-        
-        # Dimensions de l'image pour calculer les ratios
-        height, width = gray.shape
-        min_area = (width * height) * 0.01  # Au moins 1% de l'image
-        
-        for contour in contours:
-            # Ignorer les contours trop petits
-            if cv2.contourArea(contour) < min_area:
-                continue
-                
-            # Approximation du contour
-            peri = cv2.arcLength(contour, True)
-            approx = cv2.approxPolyDP(contour, 0.02 * peri, True)
-            
-            # Si on a un quadrilatère
-            if len(approx) == 4:
-                x, y, w, h = cv2.boundingRect(approx)
-                aspect_ratio = float(w) / h
-                
-                # Vérifier le ratio d'aspect typique d'une plaque (environ 2:1 ou 4:1)
-                if 1.5 <= aspect_ratio <= 5.0:
-                    # Vérifier la solidité (ratio aire/convexe)
-                    hull = cv2.convexHull(contour)
-                    solidity = cv2.contourArea(contour) / cv2.contourArea(hull) if cv2.contourArea(hull) > 0 else 0
+        for result in results:
+            if result.boxes is not None:
+                for box in result.boxes:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
+                    confidence = float(box.conf[0])
                     
-                    # Vérifier l'étendue (rapport entre l'aire du contour et sa boîte englobante)
-                    rect_area = w * h
-                    extent = cv2.contourArea(contour) / rect_area if rect_area > 0 else 0
-                    
-                    if solidity > 0.7 and extent > 0.6:  # Seuils ajustables
-                        plate_contour = approx
-                        break
+                    plates.append({
+                        'bbox': [x1, y1, x2, y2],
+                        'confidence': confidence
+                    })
         
-        # Si on a trouvé un contour, on le redimensionne aux dimensions originales
-        if plate_contour is not None:
-            plate_contour = plate_contour * (1/scale)
-            plate_contour = plate_contour.astype(int)
-            
-        return plate_contour
+        return plates
     
-    def extract_plate_text(self, plate_image):
-        """
-        Extrait le texte d'une image de plaque d'immatriculation avec prétraitement amélioré
-        """
-        # Redimensionner l'image pour une meilleure reconnaissance
-        height, width = plate_image.shape[:2]
-        scale = 300.0 / width
-        resized = cv2.resize(plate_image, (300, int(height * scale)))
+    def preprocess_plate(self, plate_img):
+        """Préprocesse l'image de plaque"""
+        if plate_img.size == 0:
+            return None
+            
+        # Convertir en gris
+        gray = cv2.cvtColor(plate_img, cv2.COLOR_BGR2GRAY)
         
-        # Convertir en niveaux de gris
-        gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
+        # Redimensionner si trop petit
+        h, w = gray.shape
+        if h < 40 or w < 120:
+            scale = max(40/h, 120/w)
+            new_w, new_h = int(w * scale), int(h * scale)
+            gray = cv2.resize(gray, (new_w, new_h))
         
         # Améliorer le contraste
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
         enhanced = clahe.apply(gray)
         
-        # Seuillage adaptatif
-        thresh = cv2.adaptiveThreshold(
-            enhanced, 255, 
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-            cv2.THRESH_BINARY, 
-            11, 2
-        )
+        # Débruitage
+        denoised = cv2.fastNlMeansDenoising(enhanced)
         
-        # Utiliser EasyOCR avec des paramètres optimisés
-        results = self.reader.readtext(
-            thresh,
-            decoder='beamsearch',
-            beamWidth=5,
-            batch_size=1,
-            workers=0,
-            allowlist='0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ- ',
-            width_ths=0.7,
-            height_ths=0.7,
-            y_ths=0.7,
-            paragraph=False
-        )
+        return denoised
+    
+    def extract_text(self, plate_img):
+        """Extrait le texte avec OCR pour plaques congolaises"""
+        processed = self.preprocess_plate(plate_img)
+        if processed is None:
+            return "", 0.0
         
-        # Traiter les résultats
-        if results:
-            # Trier par position X (de gauche à droite)
-            results.sort(key=lambda x: x[0][0][0])
+        try:
+            results = self.ocr_reader.readtext(processed, detail=1)
+            if not results:
+                return "", 0.0
             
-            # Extraire le texte avec une confiance minimale de 30%
-            plate_text = ' '.join([
-                result[1] 
-                for result in results 
-                if result[2] > 0.3  # Seuil de confiance
-            ])
+            # Combiner tous les textes détectés
+            all_text = ""
+            for result in results:
+                text_part = re.sub(r'[^A-Z0-9]', '', result[1].upper())
+                all_text += text_part
             
-            # Nettoyer le texte
-            import re
-            plate_text = re.sub(r'[^A-Z0-9- ]', '', plate_text.upper())
-            plate_text = re.sub(r'\s+', ' ', plate_text).strip()
+            # Supprimer le préfixe CGO s'il existe
+            if all_text.startswith('CGO'):
+                all_text = all_text[3:]
             
-            return plate_text if plate_text else None
+            # Extraire le format congolais: 4 chiffres + 2 lettres + 2 chiffres
+            plate_text = self.extract_congolese_format(all_text)
+            
+            if plate_text:
+                # Calculer la confiance moyenne
+                avg_confidence = sum(r[2] for r in results) / len(results)
+                return plate_text, avg_confidence
+            
+            # Si pas de format valide, retourner le texte nettoyé
+            return all_text, results[0][2] if results else 0.0
+            
+        except Exception:
+            return "", 0.0
+    
+    def extract_congolese_format(self, text):
+        """Extrait le format congolais: 4 chiffres + 2 lettres + 2 chiffres"""
+        # Chercher le pattern exact: 4 chiffres + 2 lettres + 2 chiffres
+        pattern = r'([0-9]{4}[A-Z]{2}[0-9]{2})'
+        match = re.search(pattern, text)
         
-        return None
+        if match:
+            return match.group(1)
+        
+        # Si pas de match exact, essayer de construire le format
+        # Extraire tous les chiffres et lettres séparément
+        digits = re.findall(r'[0-9]', text)
+        letters = re.findall(r'[A-Z]', text)
+        
+        # Vérifier si on a assez d'éléments (6 chiffres + 2 lettres minimum)
+        if len(digits) >= 6 and len(letters) >= 2:
+            # Construire: 4 premiers chiffres + 2 premières lettres + 2 derniers chiffres
+            first_four = ''.join(digits[:4])
+            two_letters = ''.join(letters[:2])
+            last_two = ''.join(digits[4:6])
+            
+            constructed = first_four + two_letters + last_two
+            return constructed
+        
+        return ""
+    
+    def process_detection(self, image_path):
+        """Processus principal de détection"""
+        # Charger l'image
+        image = cv2.imread(image_path)
+        if image is None:
+            raise ValueError(f"Impossible de charger: {image_path}")
+        
+        result_image = image.copy()
+        detection_results = []
+        
+        # Détecter les véhicules
+        vehicles = self.detect_vehicles(image)
+        
+        for i, vehicle in enumerate(vehicles):
+            x1, y1, x2, y2 = vehicle['bbox']
+            
+            # Dessiner le véhicule
+            cv2.rectangle(result_image, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            cv2.putText(result_image, f'Vehicle {i+1}', (x1, y1-10), 
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            
+            # Extraire la région du véhicule
+            vehicle_region = image[y1:y2, x1:x2]
+            
+            if vehicle_region.size == 0:
+                continue
+            
+            # Détecter les plaques
+            plates = self.detect_plates(vehicle_region)
+            
+            vehicle_plates = []
+            for j, plate in enumerate(plates):
+                px1, py1, px2, py2 = plate['bbox']
+                
+                # Coordonnées absolues
+                abs_x1 = x1 + px1
+                abs_y1 = y1 + py1
+                abs_x2 = x1 + px2
+                abs_y2 = y1 + py2
+                
+                # Vérifier les limites
+                abs_x1 = max(0, abs_x1)
+                abs_y1 = max(0, abs_y1)
+                abs_x2 = min(image.shape[1], abs_x2)
+                abs_y2 = min(image.shape[0], abs_y2)
+                
+                if abs_x2 <= abs_x1 or abs_y2 <= abs_y1:
+                    continue
+                
+                # Extraire la plaque
+                plate_img = image[abs_y1:abs_y2, abs_x1:abs_x2]
+                
+                if plate_img.size == 0:
+                    continue
+                
+                # OCR
+                text, confidence = self.extract_text(plate_img)
+                
+                # Dessiner la plaque
+                cv2.rectangle(result_image, (abs_x1, abs_y1), (abs_x2, abs_y2), (0, 0, 255), 2)
+                
+                if text:
+                    cv2.putText(result_image, text, (abs_x1, abs_y1-10), 
+                               cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 0, 255), 2)
+                
+                vehicle_plates.append({
+                    'image': plate_img,
+                    'text': text,
+                    'confidence': confidence,
+                    'bbox': [abs_x1, abs_y1, abs_x2, abs_y2]
+                })
+            
+            detection_results.append({
+                'vehicle_bbox': vehicle['bbox'],
+                'vehicle_confidence': vehicle['confidence'],
+                'plates': vehicle_plates
+            })
+        
+        return result_image, detection_results
