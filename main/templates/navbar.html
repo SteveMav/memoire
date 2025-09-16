@@ -13,14 +13,21 @@
                 <li class="nav-item">
                     <a class="nav-link active" href="{% url 'home' %}">Accueil</a>
                 </li>
+                {% if user.is_authenticated %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'vehicules:vehicle_list' %}">Mes véhicules</a>
+                </li>
+                {% endif %}
                 {% if perms.detection.add_detection %}
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'detection:detect_home' %}">detecter une plaque</a>
                 </li>
                 {% else %}
+                {% if user.is_authenticated %}
                 <li class="nav-item">
-                    <a class="nav-link" href="{% url 'detection:detect_home' %}">Mon espace</a>
+                    <a class="nav-link" href="{% url 'vehicules:vehicle_list' %}">Mon espace</a>
                 </li>
+                {% endif %}
                 {% endif %}
                 <li class="nav-item">
                     <a class="nav-link {% if active_page == 'about' %}active{% endif %}" href="{% url 'about' %}">À propos</a>
