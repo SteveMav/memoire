@@ -5,8 +5,11 @@ from django.shortcuts import render
 from django.core.files.storage import FileSystemStorage
 from django.http import JsonResponse
 from .car_detector import CarDetector
+from django.contrib.auth.decorators import login_required, permission_required
 
 
+@login_required
+@permission_required('detection.add_detection', raise_exception=True)
 def detect_home(request):
     """Page d'accueil avec détection de véhicules et de plaques"""
     if request.method == 'POST' and request.FILES.get('media'):
@@ -77,6 +80,9 @@ def detect_home(request):
     return render(request, 'detection/home_detect.html')
 
 
+
+@login_required
+@permission_required('detection.add_detection', raise_exception=True)
 def save_corrected_plates(request):
     """Sauvegarde les textes de plaques corrigés par l'utilisateur"""
     if request.method == 'POST':
@@ -100,6 +106,8 @@ def save_corrected_plates(request):
     return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
 
 
+@login_required
+@permission_required('detection.add_detection', raise_exception=True)
 def extract_manual_plate(request):
     """Extrait le texte d'une région de plaque sélectionnée manuellement en utilisant l'algorithme de détection existant"""
     if request.method == 'POST':

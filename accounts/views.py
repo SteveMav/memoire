@@ -26,11 +26,17 @@ def register_view(request):
     if request.method == 'POST':
         form = RegisterForm(request.POST)
         if form.is_valid():
-            user = form.save()
-            messages.success(request, 'Compte créé avec succès! Vous pouvez maintenant vous connecter.')
-            return redirect('home')
+            try:
+                user = form.save()
+                messages.success(request, 'Compte créé avec succès! Vous pouvez maintenant vous connecter.')
+                login(request, user)
+                return redirect('home')
+            except Exception as e:
+                messages.error(request, f'Erreur lors de la création du compte: {str(e)}')
         else:
             messages.error(request, 'Veuillez corriger les erreurs ci-dessous.')
+            # Debug: print form errors
+            print("Form errors:", form.errors)
     else:
         form = RegisterForm()
     

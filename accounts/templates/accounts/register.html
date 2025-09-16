@@ -197,13 +197,16 @@
             const agentNumberInput = document.getElementById('id_agent_number');
             
             function toggleAgentNumberField() {
+                console.log('User type selected:', userTypeSelect.value); // Debug
                 if (userTypeSelect.value === 'agent') {
                     agentNumberField.style.display = 'block';
                     agentNumberInput.required = true;
+                    console.log('Agent field shown'); // Debug
                 } else {
                     agentNumberField.style.display = 'none';
                     agentNumberInput.required = false;
                     agentNumberInput.value = ''; // Clear the field when hidden
+                    console.log('Agent field hidden'); // Debug
                 }
             }
             

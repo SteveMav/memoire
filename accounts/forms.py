@@ -87,10 +87,9 @@ class RegisterForm(UserCreationForm):
             'placeholder': 'Confirmez votre mot de passe'
         })
 
-    def clean(self):
-        cleaned_data = super().clean()
-        user_type = cleaned_data.get('user_type')
-        agent_number = cleaned_data.get('agent_number')
+    def clean_agent_number(self):
+        agent_number = self.cleaned_data.get('agent_number')
+        user_type = self.data.get('user_type')
         
         # Validation conditionnelle pour les agents
         if user_type == 'agent':
@@ -98,13 +97,13 @@ class RegisterForm(UserCreationForm):
                 raise forms.ValidationError(
                     'Le numéro matricule est obligatoire pour les agents.'
                 )
-            # Validation du format du numéro matricule (exemple: AG-2024-001)
+            # Validation du format du numéro matricule
             if len(agent_number.strip()) < 5:
                 raise forms.ValidationError(
                     'Le numéro matricule doit contenir au moins 5 caractères.'
                 )
         
-        return cleaned_data
+        return agent_number
 
     def save(self, commit=True):
         user = super().save(commit=False)
