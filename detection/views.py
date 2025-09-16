@@ -175,17 +175,17 @@ def extract_manual_plate(request):
                 best_plate = plates[0]
                 px1, py1, px2, py2 = best_plate['bbox']
                 
-                # Extraire la région de la plaque détectée
+                # Extraire la région de la plaque détectée pour l'OCR
                 detected_plate_region = plate_region[py1:py2, px1:px2]
                 
                 # Extraire le texte avec OCR sur la plaque détectée
                 plate_text, confidence = detector.extract_text(detected_plate_region)
                 
-                # Sauvegarder l'image de la plaque détectée (pas toute la région sélectionnée)
+                # Sauvegarder l'image de la région MANUELLE complète (pas seulement la plaque détectée)
                 fs = FileSystemStorage()
-                plate_filename = f"manual_detected_plate_{os.path.basename(image_path)}"
+                plate_filename = f"manual_selection_{os.path.basename(image_path)}"
                 plate_path = os.path.join(settings.MEDIA_ROOT, plate_filename)
-                cv2.imwrite(plate_path, detected_plate_region)
+                cv2.imwrite(plate_path, plate_region)  # Sauvegarder toute la région sélectionnée
                 
                 return JsonResponse({
                     'success': True,
@@ -201,11 +201,11 @@ def extract_manual_plate(request):
                 # Appliquer le préprocessing et l'OCR directement
                 plate_text, confidence = detector.extract_text(plate_region)
                 
-                # Sauvegarder l'image de la région sélectionnée
+                # Sauvegarder l'image de la région sélectionnée complète
                 fs = FileSystemStorage()
-                plate_filename = f"manual_plate_{os.path.basename(image_path)}"
+                plate_filename = f"manual_selection_{os.path.basename(image_path)}"
                 plate_path = os.path.join(settings.MEDIA_ROOT, plate_filename)
-                cv2.imwrite(plate_path, plate_region)
+                cv2.imwrite(plate_path, plate_region)  # Sauvegarder toute la région sélectionnée
                 
                 return JsonResponse({
                     'success': True,
