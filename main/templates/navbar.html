@@ -13,11 +13,6 @@
                 <li class="nav-item">
                     <a class="nav-link active" href="{% url 'home' %}">Accueil</a>
                 </li>
-                {% if user.is_authenticated %}
-                <li class="nav-item">
-                    <a class="nav-link" href="{% url 'vehicules:vehicle_list' %}">Mes véhicules</a>
-                </li>
-                {% endif %}
                 {% if perms.detection.add_detection %}
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'detection:detect_home' %}">detecter une plaque</a>

@@ -17,61 +17,113 @@
     {% include 'navbar.html' %}
 
     <main class="container mt-5 mb-5">
-        <!-- Messages -->
+        <!-- Alert Container for Dynamic Messages -->
+        <div id="alertContainer"></div>
+
+        <!-- Messages from Django -->
         {% if messages %}
-        <div class="row">
-            <div class="col-12">
-                {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                    {{ message }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                </div>
-                {% endfor %}
-            </div>
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
+        {% endfor %}
         {% endif %}
 
         <!-- Page Header -->
         <div class="row mb-4">
             <div class="col-12">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
+                <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
+                    <div class="mb-3 mb-md-0">
                         <h1 class="display-6 fw-bold text-dark mb-2">
                             <i class="fas fa-car me-3" style="color: #2c3e50;"></i>Mes Véhicules
                         </h1>
-                        <p class="text-muted">Gérez vos véhicules et déclarez les vols</p>
+                        <p class="text-muted mb-0">Gérez vos véhicules et déclarez les vols</p>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Total: <span id="vehicleCount">{{ vehicles|length }}</span> véhicule{{ vehicles|length|pluralize }}
+                        </small>
                     </div>
-                    <button type="button" class="btn btn-lg" style="background-color: #2c3e50; border-color: #2c3e50; color: white;" data-bs-toggle="modal" data-bs-target="#addVehicleModal">
-                        <i class="fas fa-plus me-2"></i>Ajouter un véhicule
-                    </button>
+                    <div>
+                        <button type="button" class="btn btn-lg btn-primary" id="addVehicleBtn" style="background-color: #2c3e50; border-color: #2c3e50;">
+                            <i class="fas fa-plus me-2"></i>Ajouter un véhicule
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Vehicle Cards -->
+        <!-- Vehicle Statistics -->
+        {% if vehicles %}
+        <div class="row mb-4">
+            <div class="col-md-4">
+                <div class="card bg-light border-0">
+                    <div class="card-body text-center">
+                        <i class="fas fa-car fa-2x text-primary mb-2" style="color: #2c3e50 !important;"></i>
+                        <h5 class="card-title">{{ vehicles|length }}</h5>
+                        <p class="card-text text-muted">Véhicule{{ vehicles|length|pluralize }} total</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-light border-0">
+                    <div class="card-body text-center">
+                        <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
+                        <h5 class="card-title" id="safeVehicleCount">
+                            {% for vehicle in vehicles %}{% if not vehicle.is_stolen %}{{ forloop.counter0|add:1 }}{% endif %}{% empty %}{{ vehicles|length }}{% endfor %}
+                        </h5>
+                        <p class="card-text text-muted">En sécurité</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card bg-light border-0">
+                    <div class="card-body text-center">
+                        <i class="fas fa-exclamation-triangle fa-2x text-danger mb-2"></i>
+                        <h5 class="card-title" id="stolenVehicleCount">
+                            {% for vehicle in vehicles %}{% if vehicle.is_stolen %}{{ forloop.counter0|add:1 }}{% endif %}{% empty %}0{% endfor %}
+                        </h5>
+                        <p class="card-text text-muted">Déclaré{{ vehicles|length|pluralize }} volé{{ vehicles|length|pluralize }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Vehicle Cards Container -->
         <div class="row" id="vehicleContainer">
             {% for vehicle in vehicles %}
-            <div class="col-md-6 col-lg-4 mb-4" data-vehicle-id="{{ vehicle.id }}">
-                <div class="card shadow-sm border-0 h-100 {% if vehicle.is_stolen %}border-danger{% endif %}">
+            <div class="col-md-6 col-lg-4 mb-4 vehicle-card" data-vehicle-id="{{ vehicle.id }}" data-is-stolen="{{ vehicle.is_stolen|yesno:'true,false' }}">
+                <div class="card shadow-sm border-0 h-100 {% if vehicle.is_stolen %}border-danger border-2{% endif %}">
                     {% if vehicle.is_stolen %}
                     <div class="card-header bg-danger text-white">
                         <i class="fas fa-exclamation-triangle me-2"></i>VÉHICULE VOLÉ
+                        {% if vehicle.stolen_date %}
+                        <small class="d-block mt-1">
+                            <i class="fas fa-clock me-1"></i>
+                            Depuis le {{ vehicle.stolen_date|date:"d/m/Y à H:i" }}
+                        </small>
+                        {% endif %}
                     </div>
                     {% endif %}
+                    
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start mb-3">
-                            <h5 class="card-title fw-bold text-dark">{{ vehicle.plate }}</h5>
+                            <div>
+                                <h5 class="card-title fw-bold text-dark mb-1">{{ vehicle.plate }}</h5>
+                                <span class="badge bg-secondary">{{ vehicle.brand }}</span>
+                            </div>
                             <div class="dropdown">
-                                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="dropdown">
-                                    <i class="fas fa-ellipsis-v"></i>
+                                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="dropdownMenuButton{{ vehicle.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <i class="fas fa-cog"></i>
                                 </button>
-                                <ul class="dropdown-menu">
+                                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton{{ vehicle.id }}">
                                     <li>
-                                        <button class="dropdown-item toggle-stolen-btn" data-vehicle-id="{{ vehicle.id }}">
+                                        <button class="dropdown-item toggle-stolen-btn" data-vehicle-id="{{ vehicle.id }}" data-current-status="{{ vehicle.is_stolen|yesno:'true,false' }}">
                                             {% if vehicle.is_stolen %}
-                                                <i class="fas fa-check me-2"></i>Marquer comme retrouvé
+                                                <i class="fas fa-check text-success me-2"></i>Marquer comme retrouvé
                                             {% else %}
-                                                <i class="fas fa-exclamation-triangle me-2"></i>Déclarer comme volé
+                                                <i class="fas fa-exclamation-triangle text-warning me-2"></i>Déclarer comme volé
                                             {% endif %}
                                         </button>
                                     </li>
@@ -86,44 +138,62 @@
                         </div>
                         
                         <div class="vehicle-info">
-                            <p class="mb-2">
-                                <i class="fas fa-industry me-2" style="color: #2c3e50;"></i>
-                                <strong>{{ vehicle.brand }} {{ vehicle.model }}</strong>
-                            </p>
-                            <p class="mb-2">
-                                <i class="fas fa-palette me-2" style="color: #2c3e50;"></i>
-                                {{ vehicle.color }}
-                            </p>
-                            {% if vehicle.year %}
-                            <p class="mb-2">
-                                <i class="fas fa-calendar me-2" style="color: #2c3e50;"></i>
-                                {{ vehicle.year }}
-                            </p>
-                            {% endif %}
-                            {% if vehicle.is_stolen and vehicle.stolen_date %}
-                            <p class="mb-2 text-danger">
-                                <i class="fas fa-clock me-2"></i>
-                                Volé le {{ vehicle.stolen_date|date:"d/m/Y à H:i" }}
-                            </p>
-                            {% endif %}
+                            <div class="row g-2">
+                                <div class="col-12">
+                                    <p class="mb-2">
+                                        <i class="fas fa-car me-2" style="color: #2c3e50;"></i>
+                                        <strong>{{ vehicle.model }}</strong>
+                                    </p>
+                                </div>
+                                <div class="col-6">
+                                    <p class="mb-2">
+                                        <i class="fas fa-palette me-2" style="color: #2c3e50;"></i>
+                                        <small>{{ vehicle.color }}</small>
+                                    </p>
+                                </div>
+                                {% if vehicle.year %}
+                                <div class="col-6">
+                                    <p class="mb-2">
+                                        <i class="fas fa-calendar me-2" style="color: #2c3e50;"></i>
+                                        <small>{{ vehicle.year }}</small>
+                                    </p>
+                                </div>
+                                {% endif %}
+                            </div>
                         </div>
                     </div>
+                    
                     <div class="card-footer bg-light text-muted">
-                        <small>
-                            <i class="fas fa-plus-circle me-1"></i>
-                            Ajouté le {{ vehicle.created_at|date:"d/m/Y à H:i" }}
-                        </small>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small>
+                                <i class="fas fa-plus-circle me-1"></i>
+                                {{ vehicle.created_at|date:"d/m/Y" }}
+                            </small>
+                            <small class="vehicle-status">
+                                {% if vehicle.is_stolen %}
+                                    <span class="text-danger">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>Volé
+                                    </span>
+                                {% else %}
+                                    <span class="text-success">
+                                        <i class="fas fa-shield-alt me-1"></i>Sécurisé
+                                    </span>
+                                {% endif %}
+                            </small>
+                        </div>
                     </div>
                 </div>
             </div>
             {% empty %}
             <div class="col-12" id="noVehiclesMessage">
                 <div class="text-center py-5">
-                    <i class="fas fa-car fa-4x text-muted mb-4"></i>
-                    <h3 class="text-muted">Aucun véhicule enregistré</h3>
-                    <p class="text-muted">Commencez par ajouter votre premier véhicule</p>
-                    <button type="button" class="btn btn-lg" style="background-color: #2c3e50; border-color: #2c3e50; color: white;" data-bs-toggle="modal" data-bs-target="#addVehicleModal">
-                        <i class="fas fa-plus me-2"></i>Ajouter un véhicule
+                    <div class="mb-4">
+                        <i class="fas fa-car fa-5x text-muted opacity-50"></i>
+                    </div>
+                    <h3 class="text-muted mb-3">Aucun véhicule enregistré</h3>
+                    <p class="text-muted mb-4">Commencez par ajouter votre premier véhicule pour commencer à gérer votre parc automobile.</p>
+                    <button type="button" class="btn btn-lg btn-primary" id="addFirstVehicleBtn" style="background-color: #2c3e50; border-color: #2c3e50;">
+                        <i class="fas fa-plus me-2"></i>Ajouter mon premier véhicule
                     </button>
                 </div>
             </div>
@@ -133,57 +203,110 @@
 
     <!-- Add Vehicle Modal -->
     <div class="modal fade" id="addVehicleModal" tabindex="-1" aria-labelledby="addVehicleModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header" style="background-color: #2c3e50; color: white;">
                     <h5 class="modal-title" id="addVehicleModalLabel">
-                        <i class="fas fa-plus me-2"></i>Ajouter un véhicule
+                        <i class="fas fa-plus me-2"></i>Ajouter un nouveau véhicule
                     </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="addVehicleForm">
-                        <div class="mb-3">
-                            <label for="plate" class="form-label fw-semibold">
-                                <i class="fas fa-id-card me-2" style="color: #2c3e50;"></i>Numéro de plaque *
-                            </label>
-                            <input type="text" class="form-control" id="plate" name="plate" required placeholder="Ex: AB-123-CD">
-                        </div>
+                    <div id="modalAlertContainer"></div>
+                    <form id="addVehicleForm" novalidate>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="brand" class="form-label fw-semibold">
+                                <label for="vehiclePlate" class="form-label fw-semibold">
+                                    <i class="fas fa-id-card me-2" style="color: #2c3e50;"></i>Numéro de plaque *
+                                </label>
+                                <input type="text" class="form-control" id="vehiclePlate" name="plate" required 
+                                       placeholder="Ex: AB-123-CD" maxlength="20">
+                                <div class="invalid-feedback">
+                                    Veuillez saisir un numéro de plaque valide.
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="vehicleBrand" class="form-label fw-semibold">
                                     <i class="fas fa-industry me-2" style="color: #2c3e50;"></i>Marque *
                                 </label>
-                                <input type="text" class="form-control" id="brand" name="brand" required placeholder="Ex: Peugeot">
-                            </div>
-                            <div class="col-md-6 mb-3">
-                                <label for="model" class="form-label fw-semibold">
-                                    <i class="fas fa-car me-2" style="color: #2c3e50;"></i>Modèle *
-                                </label>
-                                <input type="text" class="form-control" id="model" name="model" required placeholder="Ex: 308">
+                                <input type="text" class="form-control" id="vehicleBrand" name="brand" required 
+                                       placeholder="Ex: Peugeot" maxlength="50">
+                                <div class="invalid-feedback">
+                                    Veuillez saisir la marque du véhicule.
+                                </div>
                             </div>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
-                                <label for="color" class="form-label fw-semibold">
-                                    <i class="fas fa-palette me-2" style="color: #2c3e50;"></i>Couleur *
+                                <label for="vehicleModel" class="form-label fw-semibold">
+                                    <i class="fas fa-car me-2" style="color: #2c3e50;"></i>Modèle *
                                 </label>
-                                <input type="text" class="form-control" id="color" name="color" required placeholder="Ex: Blanc">
+                                <input type="text" class="form-control" id="vehicleModel" name="model" required 
+                                       placeholder="Ex: 308" maxlength="50">
+                                <div class="invalid-feedback">
+                                    Veuillez saisir le modèle du véhicule.
+                                </div>
                             </div>
                             <div class="col-md-6 mb-3">
-                                <label for="year" class="form-label fw-semibold">
+                                <label for="vehicleColor" class="form-label fw-semibold">
+                                    <i class="fas fa-palette me-2" style="color: #2c3e50;"></i>Couleur *
+                                </label>
+                                <input type="text" class="form-control" id="vehicleColor" name="color" required 
+                                       placeholder="Ex: Blanc" maxlength="30">
+                                <div class="invalid-feedback">
+                                    Veuillez saisir la couleur du véhicule.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="vehicleYear" class="form-label fw-semibold">
                                     <i class="fas fa-calendar me-2" style="color: #2c3e50;"></i>Année
                                 </label>
-                                <input type="number" class="form-control" id="year" name="year" min="1900" max="2025" placeholder="Ex: 2020">
+                                <input type="number" class="form-control" id="vehicleYear" name="year" 
+                                       min="1900" max="2025" placeholder="Ex: 2020">
+                                <div class="form-text">
+                                    <small class="text-muted">Optionnel - Année de fabrication</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" type="checkbox" id="vehicleStolen" name="is_stolen">
+                                    <label class="form-check-label text-danger" for="vehicleStolen">
+                                        <i class="fas fa-exclamation-triangle me-1"></i>
+                                        Ce véhicule est actuellement volé
+                                    </label>
+                                </div>
                             </div>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                    <button type="button" class="btn" style="background-color: #2c3e50; border-color: #2c3e50; color: white;" id="saveVehicleBtn">
-                        <i class="fas fa-save me-2"></i>Enregistrer
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Annuler
                     </button>
+                    <button type="button" class="btn btn-primary" id="saveVehicleBtn" style="background-color: #2c3e50; border-color: #2c3e50;">
+                        <i class="fas fa-save me-2"></i>Enregistrer le véhicule
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmModalLabel">Confirmation</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+                <div class="modal-body" id="confirmModalBody">
+                    <!-- Dynamic content -->
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-danger" id="confirmActionBtn">Confirmer</button>
                 </div>
             </div>
         </div>
@@ -196,6 +319,51 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <!-- Custom JS -->
     <script src="{% static 'js/main.js' %}"></script>
+    
+    <!-- Simple dropdown fix -->
+    <script>
+        // Simple approach - let Bootstrap handle dropdowns automatically
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Page loaded, Bootstrap should handle dropdowns automatically');
+            
+            // Test if dropdowns are working
+            setTimeout(() => {
+                const dropdowns = document.querySelectorAll('[data-bs-toggle="dropdown"]');
+                console.log('Found dropdowns:', dropdowns.length);
+                
+                // Add click event listener as fallback
+                dropdowns.forEach((dropdown, index) => {
+                    dropdown.addEventListener('click', function(e) {
+                        console.log(`Dropdown ${index + 1} clicked`);
+                        e.preventDefault();
+                        
+                        // Find the dropdown menu
+                        const menu = this.nextElementSibling;
+                        if (menu && menu.classList.contains('dropdown-menu')) {
+                            // Toggle the show class
+                            menu.classList.toggle('show');
+                            this.setAttribute('aria-expanded', menu.classList.contains('show'));
+                        }
+                    });
+                });
+                
+                // Close dropdowns when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!e.target.closest('.dropdown')) {
+                        const openMenus = document.querySelectorAll('.dropdown-menu.show');
+                        openMenus.forEach(menu => {
+                            menu.classList.remove('show');
+                            const button = menu.previousElementSibling;
+                            if (button) {
+                                button.setAttribute('aria-expanded', 'false');
+                            }
+                        });
+                    }
+                });
+            }, 100);
+        });
+    </script>
+    
     <script src="{% static 'js/vehicles.js' %}"></script>
 </body>
 </html>
