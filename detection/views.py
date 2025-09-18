@@ -7,6 +7,7 @@ from django.http import JsonResponse
 from .car_detector import CarDetector
 from django.contrib.auth.decorators import login_required, permission_required
 from vehicules.models import Vehicle
+from .models import Detection
 
 
 @login_required
@@ -91,6 +92,7 @@ def save_corrected_plates(request):
             import json
             data = json.loads(request.body)
             corrected_plates = data.get('plates', [])
+            original_image = data.get('original_image', None)  # Image originale si disponible
             
             # Normaliser et rechercher chaque plaque dans les véhicules
             matches = []
@@ -110,8 +112,17 @@ def save_corrected_plates(request):
                     vehicle = Vehicle.objects.filter(plate__iexact=normalized).first()
 
                 if vehicle:
+                    # Créer une nouvelle détection dans la base de données
+                    detection = Detection.objects.create(
+                        image=original_image if original_image else None,
+                        detected_plate=normalized,
+                        found_vehicle=vehicle,
+                        user=request.user
+                    )
+                    
                     entry.update({
                         'found': True,
+                        'detection_id': detection.id,
                         'vehicle': {
                             'plate': vehicle.plate,
                             'brand': vehicle.brand,
@@ -132,10 +143,24 @@ def save_corrected_plates(request):
                         }
                     })
                 else:
-                    entry.update({
-                        'found': False,
-                        'message': 'Aucun véhicule trouvé pour cette plaque'
-                    })
+                    # Créer une détection même si aucun véhicule n'est trouvé
+                    if normalized:  # Seulement si on a une plaque valide
+                        detection = Detection.objects.create(
+                            image=original_image if original_image else None,
+                            detected_plate=normalized,
+                            found_vehicle=None,
+                            user=request.user
+                        )
+                        entry.update({
+                            'found': False,
+                            'detection_id': detection.id,
+                            'message': 'Aucun véhicule trouvé pour cette plaque'
+                        })
+                    else:
+                        entry.update({
+                            'found': False,
+                            'message': 'Plaque invalide ou vide'
+                        })
 
                 matches.append(entry)
             

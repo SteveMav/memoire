@@ -117,6 +117,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // NOUVELLE FONCTION D'AFFICHAGE DES RÉSULTATS
     function displayResults(data) {
         console.log('Affichage des résultats:', data);
+        
+        // Stocker les données pour la sauvegarde ultérieure
+        window.lastDetectionData = data;
         const resultsDiv = document.getElementById('detectionResults');
         resultsDiv.innerHTML = '';
         
@@ -372,10 +375,142 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Fonction simplifiée pour sauvegarder seulement
+    // Fonction pour sauvegarder les plaques corrigées
     function savePlatesOnly() {
         console.log('Fonction savePlatesOnly appelée');
-        alert('Plaques sauvegardées ! (fonction simplifiée)');
+        
+        const inputs = document.querySelectorAll('.plate-text-input');
+        console.log('Inputs trouvés:', inputs.length);
+        
+        if (inputs.length === 0) {
+            alert('Aucune plaque à sauvegarder');
+            return;
+        }
+        
+        const plates = Array.from(inputs).map(input => ({
+            plate_id: input.dataset.plateId,
+            corrected_text: input.value.trim()
+        }));
+        console.log('Plaques à sauvegarder:', plates);
+        
+        const saveBtn = document.getElementById('savePlatesBtn');
+        if (!saveBtn) {
+            console.error('Bouton savePlatesBtn non trouvé !');
+            return;
+        }
+        
+        const originalText = saveBtn.innerHTML;
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sauvegarde...';
+        
+        // Récupération du token CSRF
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                         document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+                         '';
+        
+        console.log('Token CSRF trouvé:', csrfToken ? 'Oui' : 'Non');
+        
+        if (!csrfToken) {
+            console.error('Token CSRF non trouvé !');
+            alert('Erreur: Token CSRF manquant');
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+            return;
+        }
+        
+        // Récupérer l'image originale depuis les données de la dernière détection
+        let originalImage = null;
+        if (window.lastDetectionData && window.lastDetectionData.original_image) {
+            originalImage = window.lastDetectionData.original_image;
+        }
+        
+        console.log('Image originale:', originalImage);
+        
+        // Préparer les données à envoyer
+        const dataToSend = {
+            plates: plates,
+            original_image: originalImage
+        };
+        
+        console.log('Données à envoyer:', dataToSend);
+        
+        // Envoi de la requête
+        fetch('/detection/save-corrected-plates/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify(dataToSend)
+        })
+        .then(response => {
+            console.log('Réponse reçue:', response.status);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Données reçues:', data);
+            
+            if (data.success) {
+                // Afficher un message de succès
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-success alert-dismissible fade show mt-3';
+                alertDiv.innerHTML = `
+                    <i class="fas fa-check-circle me-2"></i>
+                    ${data.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                `;
+                
+                // Insérer l'alerte avant le bouton
+                saveBtn.parentNode.insertBefore(alertDiv, saveBtn);
+                
+                // Afficher les résultats de correspondance
+                if (data.matches && data.matches.length > 0) {
+                    let matchesHTML = '<div class="mt-3"><h6>Résultats de la recherche :</h6>';
+                    
+                    data.matches.forEach(match => {
+                        if (match.found) {
+                            matchesHTML += `
+                                <div class="alert alert-info">
+                                    <strong>Plaque ${match.normalized_plate}</strong> - 
+                                    <span class="text-success">Véhicule trouvé !</span><br>
+                                    ${match.vehicle.brand} ${match.vehicle.model} (${match.vehicle.color})
+                                    ${match.vehicle.is_stolen ? '<span class="badge bg-danger ms-2">VOLÉ</span>' : ''}
+                                </div>
+                            `;
+                        } else {
+                            matchesHTML += `
+                                <div class="alert alert-warning">
+                                    <strong>Plaque ${match.normalized_plate}</strong> - 
+                                    <span class="text-warning">Aucun véhicule trouvé</span>
+                                </div>
+                            `;
+                        }
+                    });
+                    
+                    matchesHTML += '</div>';
+                    alertDiv.insertAdjacentHTML('afterend', matchesHTML);
+                }
+                
+                // Auto-fermeture de l'alerte après 5 secondes
+                setTimeout(() => {
+                    if (alertDiv && alertDiv.parentNode) {
+                        alertDiv.remove();
+                    }
+                }, 5000);
+                
+            } else {
+                alert('Erreur lors de la sauvegarde: ' + (data.error || 'Erreur inconnue'));
+            }
+        })
+        .catch(error => {
+            console.error('Erreur:', error);
+            alert('Erreur lors de la sauvegarde: ' + error.message);
+        })
+        .finally(() => {
+            // Restaurer le bouton
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        });
     }
     
     // Fonction pour afficher la section de vérification permanente

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Espace Agent - PlateDetect</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+    {% include 'navbar.html' %}
+
+    <main class="container-fluid mt-4">
+        <div class="row">
+            <!-- Sidebar avec informations agent -->
+            <div class="col-md-3 mb-4">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            {% if is_staff and not is_agent %}
+                                <i class="fas fa-user-cog me-2"></i>
+                                {{ user_type }} {{ agent_number }}
+                            {% else %}
+                                <i class="fas fa-user-shield me-2"></i>
+                                Agent {{ agent_number }}
+                            {% endif %}
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center mb-3">
+                            <div class="bg-light rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+                                {% if is_staff and not is_agent %}
+                                    <i class="fas fa-user-cog fa-2x text-primary"></i>
+                                {% else %}
+                                    <i class="fas fa-user fa-2x text-primary"></i>
+                                {% endif %}
+                            </div>
+                            <h6 class="mt-2">{{ user.get_full_name|default:user.username }}</h6>
+                            <small class="text-muted">{{ user_type }}</small>
+                        </div>
+                        <hr>
+                        <div class="row text-center">
+                            <div class="col-12 mb-2">
+                                <div class="bg-light p-2 rounded">
+                                    <strong class="text-primary">{{ total_detections }}</strong>
+                                    <br>
+                                    <small class="text-muted">Détections totales</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recherche de plaque -->
+                <div class="card shadow-sm mt-4">
+                    <div class="card-header bg-secondary text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-search me-2"></i>
+                            Recherche de plaque
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <form id="searchForm">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="plateSearch" placeholder="Ex: AB-123-CD" maxlength="20">
+                                <button class="btn btn-secondary" type="submit">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </form>
+                        <div id="searchLoader" class="text-center mt-3" style="display: none;">
+                            <div class="spinner-border spinner-border-sm text-secondary" role="status">
+                                <span class="visually-hidden">Recherche...</span>
+                            </div>
+                            <small class="d-block mt-1">Recherche en cours...</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contenu principal -->
+            <div class="col-md-9">
+                <!-- Messages d'alerte -->
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <!-- Résultats de recherche -->
+                <div id="searchResults" style="display: none;">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">
+                                <i class="fas fa-car me-2"></i>
+                                Résultats de recherche
+                            </h5>
+                        </div>
+                        <div class="card-body" id="searchResultsContent">
+                            <!-- Contenu dynamique -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Liste des détections -->
+                <div class="card shadow-sm">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-list me-2"></i>
+                            {% if is_staff and not is_agent %}
+                                Toutes les détections du système
+                            {% else %}
+                                Mes détections récentes
+                            {% endif %}
+                        </h5>
+                        <span class="badge bg-light text-dark">{{ total_detections }} au total</span>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if detections %}
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Plaque détectée</th>
+                                            <th>Date/Heure</th>
+                                            {% if is_staff and not is_agent %}
+                                                <th>Agent</th>
+                                            {% endif %}
+                                            <th>Véhicule associé</th>
+                                            <th>Propriétaire</th>
+                                            <th>Statut</th>
+                                            <th>Média</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for detection in detections %}
+                                            <tr>
+                                                <td>
+                                                    <strong class="text-primary">{{ detection.detected_plate }}</strong>
+                                                </td>
+                                                <td>
+                                                    <small>{{ detection.detection_date|date:"d/m/Y H:i" }}</small>
+                                                </td>
+                                                {% if is_staff and not is_agent %}
+                                                    <td>
+                                                        {% if detection.user %}
+                                                            <div>
+                                                                <strong>{{ detection.user.get_full_name|default:detection.user.username }}</strong>
+                                                                {% if detection.user.profile.agent_number %}
+                                                                    <br>
+                                                                    <small class="text-muted">Agent {{ detection.user.profile.agent_number }}</small>
+                                                                {% endif %}
+                                                            </div>
+                                                        {% else %}
+                                                            <span class="text-muted">Système</span>
+                                                        {% endif %}
+                                                    </td>
+                                                {% endif %}
+                                                <td>
+                                                    {% if detection.found_vehicle %}
+                                                        <div>
+                                                            <strong>{{ detection.found_vehicle.brand }} {{ detection.found_vehicle.model }}</strong>
+                                                            <br>
+                                                            <small class="text-muted">{{ detection.found_vehicle.color }} - {{ detection.found_vehicle.year|default:"N/A" }}</small>
+                                                        </div>
+                                                    {% else %}
+                                                        <span class="text-muted">Non associé</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if detection.found_vehicle.owner %}
+                                                        <div>
+                                                            <strong>{{ detection.found_vehicle.owner.get_full_name|default:detection.found_vehicle.owner.username }}</strong>
+                                                            <br>
+                                                            <small class="text-muted">{{ detection.found_vehicle.owner.email }}</small>
+                                                        </div>
+                                                    {% else %}
+                                                        <span class="text-muted">Inconnu</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if detection.found_vehicle.is_stolen %}
+                                                        <span class="badge bg-danger">
+                                                            <i class="fas fa-exclamation-triangle me-1"></i>
+                                                            Volé
+                                                        </span>
+                                                    {% else %}
+                                                        <span class="badge bg-success">Normal</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <div class="d-flex gap-1">
+                                                        {% if detection.image %}
+                                                            <span class="badge bg-info" title="Image disponible">
+                                                                <i class="fas fa-image"></i>
+                                                            </span>
+                                                        {% endif %}
+                                                        {% if detection.video %}
+                                                            <span class="badge bg-warning" title="Vidéo disponible">
+                                                                <i class="fas fa-video"></i>
+                                                            </span>
+                                                        {% endif %}
+                                                        {% if not detection.image and not detection.video %}
+                                                            <span class="text-muted">-</span>
+                                                        {% endif %}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <!-- Pagination -->
+                            {% if detections.has_other_pages %}
+                                <div class="card-footer">
+                                    <nav aria-label="Navigation des détections">
+                                        <ul class="pagination justify-content-center mb-0">
+                                            {% if detections.has_previous %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?page=1">
+                                                        <i class="fas fa-angle-double-left"></i>
+                                                    </a>
+                                                </li>
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?page={{ detections.previous_page_number }}">
+                                                        <i class="fas fa-angle-left"></i>
+                                                    </a>
+                                                </li>
+                                            {% endif %}
+
+                                            {% for num in detections.paginator.page_range %}
+                                                {% if detections.number == num %}
+                                                    <li class="page-item active">
+                                                        <span class="page-link">{{ num }}</span>
+                                                    </li>
+                                                {% elif num > detections.number|add:'-3' and num < detections.number|add:'3' %}
+                                                    <li class="page-item">
+                                                        <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+                                                    </li>
+                                                {% endif %}
+                                            {% endfor %}
+
+                                            {% if detections.has_next %}
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?page={{ detections.next_page_number }}">
+                                                        <i class="fas fa-angle-right"></i>
+                                                    </a>
+                                                </li>
+                                                <li class="page-item">
+                                                    <a class="page-link" href="?page={{ detections.paginator.num_pages }}">
+                                                        <i class="fas fa-angle-double-right"></i>
+                                                    </a>
+                                                </li>
+                                            {% endif %}
+                                        </ul>
+                                    </nav>
+                                </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="text-center py-5">
+                                <i class="fas fa-search fa-3x text-muted mb-3"></i>
+                                <h5 class="text-muted">Aucune détection trouvée</h5>
+                                <p class="text-muted">Vous n'avez pas encore effectué de détections.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    {% include 'footer.html' %}
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{% static 'js/main.js' %}"></script>
+    <script src="{% static 'js/agent-space.js' %}"></script>
+</body>
+</html>
