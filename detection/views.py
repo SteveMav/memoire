@@ -6,6 +6,7 @@ from django.core.files.storage import FileSystemStorage
 from django.http import JsonResponse
 from .car_detector import CarDetector
 from django.contrib.auth.decorators import login_required, permission_required
+from vehicules.models import Vehicle
 
 
 @login_required
@@ -91,13 +92,58 @@ def save_corrected_plates(request):
             data = json.loads(request.body)
             corrected_plates = data.get('plates', [])
             
-            # Ici vous pouvez sauvegarder les plaques corrigées dans la base de données
-            # Pour l'instant, on retourne juste une confirmation
+            # Normaliser et rechercher chaque plaque dans les véhicules
+            matches = []
+            for item in corrected_plates:
+                # Accepter à la fois corrected_text (édition de lot) et plate_text (sélection manuelle)
+                raw_text = (item.get('corrected_text') or item.get('plate_text') or '').strip()
+                # Normalisation de base: majuscules et suppression des espaces internes superflus
+                normalized = ''.join(raw_text.upper().split())
+
+                entry = {
+                    'query_plate': raw_text,
+                    'normalized_plate': normalized,
+                }
+
+                vehicle = None
+                if normalized:
+                    vehicle = Vehicle.objects.filter(plate__iexact=normalized).first()
+
+                if vehicle:
+                    entry.update({
+                        'found': True,
+                        'vehicle': {
+                            'plate': vehicle.plate,
+                            'brand': vehicle.brand,
+                            'model': vehicle.model,
+                            'color': vehicle.color,
+                            'year': vehicle.year,
+                            'is_stolen': vehicle.is_stolen,
+                            'stolen_date': vehicle.stolen_date.isoformat() if vehicle.stolen_date else None,
+                            'created_at': vehicle.created_at.isoformat(),
+                            'updated_at': vehicle.updated_at.isoformat(),
+                        },
+                        'owner': {
+                            'id': vehicle.owner.id,
+                            'username': vehicle.owner.username,
+                            'first_name': vehicle.owner.first_name,
+                            'last_name': vehicle.owner.last_name,
+                            'email': vehicle.owner.email,
+                        }
+                    })
+                else:
+                    entry.update({
+                        'found': False,
+                        'message': 'Aucun véhicule trouvé pour cette plaque'
+                    })
+
+                matches.append(entry)
             
             return JsonResponse({
                 'success': True,
-                'message': f'{len(corrected_plates)} plaques sauvegardées avec succès',
-                'plates': corrected_plates
+                'message': f'{len(corrected_plates)} plaque(s) sauvegardée(s) avec succès',
+                'plates': corrected_plates,
+                'matches': matches
             })
             
         except Exception as e:

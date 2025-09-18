@@ -1,6 +1,19 @@
-// Version 2.0 - Système de correction de plaques
+// Version 3.0 - Système de détection et extraction de plaques (séparé de la vérification)
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('Detection JS v2.0 loaded');
+    console.log('Detection JS v3.0 loaded (séparé de la vérification)');
+    
+    // Test de fonctionnement des événements
+    console.log('DOM chargé, vérification des éléments...');
+    
+    // Délégation d'événements globale pour le bouton sauvegarde
+    document.addEventListener('click', function(e) {
+        if (e.target && e.target.id === 'savePlatesBtn') {
+            console.log('Clic sur savePlatesBtn capturé par délégation globale');
+            e.preventDefault();
+            e.stopPropagation();
+            savePlatesOnly();
+        }
+    });
     
     const dropArea = document.getElementById('dropArea');
     const mediaInput = document.getElementById('mediaInput');
@@ -172,7 +185,7 @@ document.addEventListener('DOMContentLoaded', function() {
             platesHTML += `
                     </div>
                     <div class="text-center mt-4">
-                        <button type="button" class="btn btn-success btn-lg px-5" id="savePlatesBtn">
+                        <button type="button" class="btn btn-success btn-lg px-4" id="savePlatesBtn">
                             <i class="fas fa-save me-2"></i>Sauvegarder les corrections
                         </button>
                     </div>
@@ -181,26 +194,25 @@ document.addEventListener('DOMContentLoaded', function() {
             
             resultsDiv.innerHTML += platesHTML;
             
-            // Événement de sauvegarde
-            document.getElementById('savePlatesBtn').addEventListener('click', saveCorrectedPlates);
+            // Attachement de l'événement pour le bouton sauvegarder
+            setTimeout(() => {
+                const saveBtn = document.getElementById('savePlatesBtn');
+                if (saveBtn) {
+                    console.log('Bouton savePlatesBtn trouvé');
+                    saveBtn.addEventListener('click', function(e) {
+                        console.log('Clic sur savePlatesBtn détecté');
+                        e.preventDefault();
+                        e.stopPropagation();
+                        savePlatesOnly();
+                    });
+                    console.log('Événement attaché au bouton savePlatesBtn');
+                }
+            }, 200);
             
         }
         
-        // TOUJOURS afficher le bouton de sélection manuelle (même s'il y a des plaques détectées)
-        console.log('Ajout du bouton de sélection manuelle');
-        resultsDiv.innerHTML += `
-            <div class="alert alert-info mt-4">
-                <h6><i class="fas fa-hand-pointer me-2"></i>Sélection manuelle</h6>
-                <p class="mb-3">Vous pouvez également sélectionner manuellement une région de plaque dans l'image ci-dessus.</p>
-                <button type="button" class="btn btn-primary" id="enableManualSelection">
-                    <i class="fas fa-crop me-2"></i>Sélectionner une plaque manuellement
-                </button>
-            </div>
-            <div id="manualSelectionArea" style="display: none;">
-                <h6 class="mt-4">Cliquez et glissez sur l'image pour sélectionner la plaque :</h6>
-                <div id="manualPlateResults"></div>
-            </div>
-        `;
+        // Afficher la section de vérification permanente
+        showPermanentVerificationSection();
         
         // Ajouter l'événement pour la sélection manuelle
         setTimeout(() => {
@@ -214,33 +226,71 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 100);
         
         resultsSection.style.display = 'block';
+        
+        // Afficher la section de débogage
+        const debugSection = document.getElementById('debugSection');
+        if (debugSection) {
+            debugSection.style.display = 'block';
+        }
+        
         resultsSection.scrollIntoView({ behavior: 'smooth' });
     }
     
     // Sauvegarde des corrections
     function saveCorrectedPlates() {
+        console.log('Fonction saveCorrectedPlates appelée');
+        
         const inputs = document.querySelectorAll('.plate-text-input');
+        console.log('Inputs trouvés:', inputs.length);
+        
         const plates = Array.from(inputs).map(input => ({
             plate_id: input.dataset.plateId,
             corrected_text: input.value.trim()
         }));
+        console.log('Plaques à sauvegarder:', plates);
         
         const saveBtn = document.getElementById('savePlatesBtn');
+        if (!saveBtn) {
+            console.error('Bouton savePlatesBtn non trouvé dans saveCorrectedPlates !');
+            return;
+        }
+        
         const originalText = saveBtn.innerHTML;
         saveBtn.disabled = true;
         saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sauvegarde...';
         
+        // Récupération du token CSRF avec vérification
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                         document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+                         '';
+        
+        console.log('Token CSRF trouvé:', csrfToken ? 'Oui' : 'Non');
+        
+        if (!csrfToken) {
+            console.error('Token CSRF non trouvé !');
+            alert('Erreur: Token CSRF manquant');
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+            return;
+        }
+        
+        console.log('Envoi de la requête fetch...');
         fetch('/detection/save-corrected-plates/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                'X-CSRFToken': csrfToken
             },
             body: JSON.stringify({ plates })
         })
-        .then(response => response.json())
+        .then(response => {
+            console.log('Réponse reçue:', response.status);
+            return response.json();
+        })
         .then(data => {
+            console.log('Données reçues:', data);
             if (data.success) {
+                const resultsRoot = document.getElementById('detectionResults');
                 // Message de succès
                 const alert = document.createElement('div');
                 alert.className = 'alert alert-success alert-dismissible fade show mt-3';
@@ -248,21 +298,97 @@ document.addEventListener('DOMContentLoaded', function() {
                     <i class="fas fa-check-circle me-2"></i>${data.message}
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 `;
-                document.getElementById('detectionResults').appendChild(alert);
-                
+                resultsRoot.appendChild(alert);
+
+                // Affichage des correspondances véhicule/propriétaire
+                if (Array.isArray(data.matches) && data.matches.length > 0) {
+                    const container = document.createElement('div');
+                    container.className = 'mt-3';
+
+                    let html = `
+                        <div class="card shadow-sm">
+                          <div class="card-header bg-dark text-white">
+                            <i class="fas fa-car me-2"></i>Résultats de la recherche véhicule / propriétaire
+                          </div>
+                          <div class="card-body">
+                            <div class="row">
+                    `;
+
+                    data.matches.forEach((m, idx) => {
+                        html += `
+                          <div class="col-md-6 mb-3">
+                            <div class="border rounded p-3 h-100 ${m.found ? 'border-success' : 'border-danger'}">
+                              <h6 class="mb-2">
+                                <span class="badge ${m.found ? 'bg-success' : 'bg-danger'} me-2">${m.found ? 'TROUVÉ' : 'NON TROUVÉ'}</span>
+                                Plaque: <span class="fw-bold">${(m.normalized_plate || m.query_plate || '').toUpperCase()}</span>
+                              </h6>
+                              ${m.found ? `
+                                <div class="mb-2">
+                                  <div class="small text-muted">Véhicule</div>
+                                  <div class="fw-semibold">${m.vehicle.brand || ''} ${m.vehicle.model || ''}</div>
+                                  <div>Couleur: ${m.vehicle.color || '—'}</div>
+                                  <div>Année: ${m.vehicle.year ?? '—'}</div>
+                                  <div>
+                                    Statut: ${m.vehicle.is_stolen ? '<span class="badge bg-danger">Déclaré volé</span>' : '<span class="badge bg-success">Normal</span>'}
+                                  </div>
+                                </div>
+                                <div>
+                                  <div class="small text-muted">Propriétaire</div>
+                                  <div class="fw-semibold">${[m.owner.first_name, m.owner.last_name].filter(Boolean).join(' ') || m.owner.username}</div>
+                                  <div class="text-muted">${m.owner.email || ''}</div>
+                                </div>
+                              ` : `
+                                <div class="text-muted">${m.message || 'Aucun véhicule correspondant trouvé.'}</div>
+                              `}
+                            </div>
+                          </div>
+                        `;
+                    });
+
+                    html += `
+                            </div>
+                          </div>
+                        </div>
+                    `;
+
+                    container.innerHTML = html;
+                    resultsRoot.appendChild(container);
+                    container.scrollIntoView({ behavior: 'smooth' });
+                }
+
+                // Retirer automatiquement l'alerte après 3s
                 setTimeout(() => alert.remove(), 3000);
             } else {
                 throw new Error(data.error || 'Erreur de sauvegarde');
             }
         })
         .catch(error => {
-            console.error('Erreur:', error);
+            console.error('Erreur dans saveCorrectedPlates:', error);
             alert('Erreur de sauvegarde: ' + error.message);
         })
         .finally(() => {
             saveBtn.disabled = false;
             saveBtn.innerHTML = originalText;
         });
+    }
+    
+    // Fonction simplifiée pour sauvegarder seulement
+    function savePlatesOnly() {
+        console.log('Fonction savePlatesOnly appelée');
+        alert('Plaques sauvegardées ! (fonction simplifiée)');
+    }
+    
+    // Fonction pour afficher la section de vérification permanente
+    function showPermanentVerificationSection() {
+        console.log('Affichage de la section de vérification permanente');
+        
+        const permanentSection = document.getElementById('permanentVerificationSection');
+        if (permanentSection) {
+            permanentSection.style.display = 'block';
+            console.log('✅ Section de vérification permanente affichée');
+        } else {
+            console.error('❌ Section de vérification permanente non trouvée');
+        }
     }
 });
 
@@ -515,7 +641,18 @@ function displayManualPlateResult(data) {
                         <div class="mb-3">
                             <small class="text-muted">
                                 Confiance: ${Math.round(data.confidence * 100)}% | 
-                                Méthode: ${isAutoDetected ? 'Détection automatique' : 'OCR direct'}
+                                <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="testVerifyButton()">
+                                    Test bouton vérifier
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success me-2" onclick="testSaveButton()">
+                                    Test bouton sauvegarde
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-info me-2" onclick="testInputs()">
+                                    Test inputs
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-warning" onclick="testDirectSave()">
+                                    Test sauvegarde directe
+                                </button>
                             </small>
                         </div>
                         <button type="button" class="btn btn-success" onclick="saveManualPlate()">
@@ -532,13 +669,26 @@ function displayManualPlateResult(data) {
 }
 
 function saveManualPlate() {
+    console.log('Fonction saveManualPlate appelée');
     const plateText = document.getElementById('manualPlateText').value;
+    console.log('Texte de plaque:', plateText);
+    
+    // Récupération du token CSRF avec vérification
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                     document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+                     '';
+    
+    if (!csrfToken) {
+        console.error('Token CSRF non trouvé dans saveManualPlate !');
+        alert('Erreur: Token CSRF manquant');
+        return;
+    }
     
     fetch('/detection/save-corrected-plates/', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            'X-CSRFToken': csrfToken
         },
         body: JSON.stringify({
             plates: [{
@@ -550,14 +700,50 @@ function saveManualPlate() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Plaque sauvegardée avec succès !');
+            const root = document.getElementById('manualPlateResults');
+            let html = `
+                <div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>${data.message}</div>
+            `;
+            if (Array.isArray(data.matches) && data.matches.length) {
+                const m = data.matches[0];
+                html += `
+                <div class="card mt-2">
+                  <div class="card-header ${m.found ? 'bg-success' : 'bg-danger'} text-white">
+                    ${m.found ? 'Véhicule trouvé' : 'Aucun véhicule trouvé'} — Plaque: <span class="fw-bold">${(m.normalized_plate || m.query_plate || '').toUpperCase()}</span>
+                  </div>
+                  <div class="card-body">
+                    ${m.found ? `
+                      <div class="row">
+                        <div class="col-md-6">
+                          <h6 class="mb-2"><i class="fas fa-car me-2"></i>Véhicule</h6>
+                          <div><strong>Marque/Modèle:</strong> ${m.vehicle.brand || ''} ${m.vehicle.model || ''}</div>
+                          <div><strong>Couleur:</strong> ${m.vehicle.color || '—'}</div>
+                          <div><strong>Année:</strong> ${m.vehicle.year ?? '—'}</div>
+                          <div><strong>Statut:</strong> ${m.vehicle.is_stolen ? '<span class="badge bg-danger">Déclaré volé</span>' : '<span class="badge bg-success">Normal</span>'}</div>
+                        </div>
+                        <div class="col-md-6">
+                          <h6 class="mb-2"><i class="fas fa-user me-2"></i>Propriétaire</h6>
+                          <div>${[m.owner.first_name, m.owner.last_name].filter(Boolean).join(' ') || m.owner.username}</div>
+                          <div class="text-muted">${m.owner.email || ''}</div>
+                        </div>
+                      </div>
+                    ` : `
+                      <div class="text-muted">${m.message || 'Aucun véhicule correspondant trouvé.'}</div>
+                    `}
+                  </div>
+                </div>
+                `;
+            }
+            root.innerHTML = html;
         } else {
-            alert('Erreur lors de la sauvegarde');
+            const root = document.getElementById('manualPlateResults');
+            root.innerHTML = `<div class="alert alert-danger">Erreur: ${data.error || 'Erreur lors de la sauvegarde'}</div>`;
         }
     })
     .catch(error => {
         console.error('Erreur:', error);
-        alert('Erreur lors de la sauvegarde');
+        const root = document.getElementById('manualPlateResults');
+        root.innerHTML = `<div class="alert alert-danger">Erreur lors de la sauvegarde: ${error.message}</div>`;
     });
 }
 
@@ -577,3 +763,90 @@ function resetManualSelection() {
 
 // Force le rechargement du cache
 console.log('Detection JS reloaded at:', new Date().toISOString());
+
+
+// Fonction de test globale pour déboguer
+window.testSaveButton = function() {
+    console.log('Test du bouton de sauvegarde...');
+    const saveBtn = document.getElementById('savePlatesBtn');
+    if (saveBtn) {
+        console.log('Bouton trouvé !');
+        console.log('- ID:', saveBtn.id);
+        console.log('- Classes:', saveBtn.className);
+        console.log('- Disabled:', saveBtn.disabled);
+        console.log('- Data-ready:', saveBtn.getAttribute('data-ready'));
+        console.log('- Parent:', saveBtn.parentElement);
+        console.log('Simulation du clic...');
+        
+        // Créer un événement de clic personnalisé
+        const clickEvent = new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            view: window
+        });
+        saveBtn.dispatchEvent(clickEvent);
+    } else {
+        console.log('❌ Bouton non trouvé');
+        // Chercher tous les boutons pour voir ce qui existe
+        const allButtons = document.querySelectorAll('button');
+        console.log('Boutons trouvés sur la page:', allButtons.length);
+        allButtons.forEach((btn, i) => {
+            console.log(`Bouton ${i}:`, btn.id, btn.className, btn.textContent.trim().substring(0, 30));
+        });
+    }
+};
+
+// Fonction de test pour vérifier les inputs
+window.testInputs = function() {
+    const inputs = document.querySelectorAll('.plate-text-input');
+    console.log('Inputs trouvés:', inputs.length);
+    inputs.forEach((input, i) => {
+        console.log(`Input ${i}:`, input.value, input.dataset.plateId);
+    });
+};
+
+// Fonction de test pour sauvegarde directe
+window.testDirectSave = function() {
+    console.log('Test de sauvegarde directe...');
+    
+    // Récupération du token CSRF
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+                     document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+                     '';
+    
+    if (!csrfToken) {
+        alert('Token CSRF non trouvé !');
+        return;
+    }
+    
+    // Test avec des données factices
+    const testData = {
+        plates: [{
+            plate_id: 'test_1',
+            corrected_text: 'TEST123'
+        }]
+    };
+    
+    console.log('Envoi de données de test:', testData);
+    
+    fetch('/detection/save-corrected-plates/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify(testData)
+    })
+    .then(response => {
+        console.log('Réponse test:', response.status);
+        return response.json();
+    })
+    .then(data => {
+        console.log('Données test reçues:', data);
+        alert('Test réussi ! Voir la console pour les détails.');
+    })
+    .catch(error => {
+        console.error('Erreur test:', error);
+        alert('Erreur test: ' + error.message);
+    });
+};
