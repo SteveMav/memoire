@@ -9,6 +9,7 @@ urlpatterns = [
     path('', views.detect_home, name='detect_home'),
     path('save-corrected-plates/', views.save_corrected_plates, name='save_corrected_plates'),
     path('extract-manual-plate/', views.extract_manual_plate, name='extract_manual_plate'),
+    path('test-email/', views.test_email_system, name='test_email_system'),
 ]
 
 # Ajouter le support pour les fichiers média en développement

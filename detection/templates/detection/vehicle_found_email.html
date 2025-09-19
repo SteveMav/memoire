@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Véhicule Retrouvé - Mémoire</title>
+    <style>
+        /* Variables de couleurs inspirées du site */
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --success-color: #2ecc71;
+            --light-color: #ecf0f1;
+            --white: #ffffff;
+            --text-color: #333333;
+            --text-light: #6c757d;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-color);
+            background-color: #f8f9fa;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: var(--white);
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: var(--white);
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .alert-success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .alert-success .icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            display: block;
+        }
+
+        .vehicle-info {
+            background-color: var(--light-color);
+            border-radius: 8px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+
+        .vehicle-info h3 {
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+            border-bottom: 2px solid var(--secondary-color);
+            padding-bottom: 10px;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .info-row:last-child {
+            border-bottom: none;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: var(--text-color);
+            flex: 1;
+        }
+
+        .info-value {
+            flex: 2;
+            text-align: right;
+            color: var(--text-light);
+        }
+
+        .detection-info {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+
+        .detection-info h4 {
+            color: #856404;
+            margin-bottom: 15px;
+        }
+
+        .next-steps {
+            background-color: #e7f3ff;
+            border-left: 4px solid var(--secondary-color);
+            padding: 20px;
+            margin: 25px 0;
+        }
+
+        .next-steps h4 {
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+
+        .next-steps ul {
+            margin-left: 20px;
+        }
+
+        .next-steps li {
+            margin-bottom: 8px;
+            color: var(--text-color);
+        }
+
+        .footer {
+            background-color: var(--primary-color);
+            color: var(--white);
+            padding: 25px 30px;
+            text-align: center;
+        }
+
+        .footer p {
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+
+        .footer .contact-info {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 25px;
+            background-color: var(--secondary-color);
+            color: var(--white);
+            text-decoration: none;
+            border-radius: 25px;
+            font-weight: 600;
+            margin: 15px 0;
+            transition: all 0.3s ease;
+        }
+
+        .btn:hover {
+            background-color: #2980b9;
+            transform: translateY(-2px);
+        }
+
+        .timestamp {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            text-align: center;
+            margin-top: 20px;
+            font-style: italic;
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .email-container {
+                margin: 10px;
+                border-radius: 5px;
+            }
+            
+            .header, .content, .footer {
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .info-row {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .info-value {
+                text-align: left;
+                margin-top: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🚗 Véhicule Retrouvé</h1>
+            <p>Système de Détection Automatique - Mémoire</p>
+        </div>
+
+        <!-- Content -->
+        <div class="content">
+            <div class="alert-success">
+                <span class="icon">✅</span>
+                <h2>Bonne nouvelle !</h2>
+                <p>Votre véhicule déclaré volé a été détecté par notre système de reconnaissance automatique.</p>
+            </div>
+
+            <p>Bonjour <strong>{{ owner.first_name }} {{ owner.last_name }}</strong>,</p>
+            
+            <p>Nous avons le plaisir de vous informer que votre véhicule, précédemment déclaré volé, a été détecté par notre système de surveillance automatique.</p>
+
+            <!-- Informations du véhicule -->
+            <div class="vehicle-info">
+                <h3>📋 Informations du véhicule</h3>
+                <div class="info-row">
+                    <span class="info-label">Plaque d'immatriculation :</span>
+                    <span class="info-value"><strong>{{ vehicle.plate }}</strong></span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Marque :</span>
+                    <span class="info-value">{{ vehicle.brand }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Modèle :</span>
+                    <span class="info-value">{{ vehicle.model }}</span>
+                </div>
+                <div class="info-row">
+                    <span class="info-label">Couleur :</span>
+                    <span class="info-value">{{ vehicle.color }}</span>
+                </div>
+                {% if vehicle.year %}
+                <div class="info-row">
+                    <span class="info-label">Année :</span>
+                    <span class="info-value">{{ vehicle.year }}</span>
+                </div>
+                {% endif %}
+                <div class="info-row">
+                    <span class="info-label">Date de déclaration de vol :</span>
+                    <span class="info-value">{{ vehicle.stolen_date|date:"d/m/Y à H:i" }}</span>
+                </div>
+            </div>
+
+            <!-- Informations de détection -->
+            <div class="detection-info">
+                <h4>🔍 Détails de la détection</h4>
+                <p><strong>Agent détecteur :</strong> {{ agent.first_name }} {{ agent.last_name }} ({{ agent.username }})</p>
+                <p><strong>Date et heure de détection :</strong> {{ detection_date|date:"d/m/Y à H:i" }}</p>
+                <p><strong>Plaque détectée :</strong> {{ detected_plate }}</p>
+            </div>
+
+            <!-- Prochaines étapes -->
+            <div class="next-steps">
+                <h4>📞 Prochaines étapes</h4>
+                <ul>
+                    <li>Nos services vous recontacteront dans les plus brefs délais</li>
+                    <li>Veuillez garder ce message comme preuve de détection</li>
+                    <li>Préparez vos documents d'identité et de propriété du véhicule</li>
+                    <li>Ne vous rendez pas sur les lieux par vous-même</li>
+                </ul>
+            </div>
+
+            <p>Nous vous remercions pour votre patience et sommes heureux de pouvoir vous aider dans la récupération de votre véhicule.</p>
+
+            <div class="timestamp">
+                Email généré automatiquement le {{ current_date|date:"d/m/Y à H:i" }}
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>Système Mémoire</strong></p>
+            <p>Détection Automatique de Véhicules</p>
+            <div class="contact-info">
+                <p>Cet email a été envoyé automatiquement, merci de ne pas y répondre.</p>
+                <p>Pour toute question, contactez nos services compétents.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

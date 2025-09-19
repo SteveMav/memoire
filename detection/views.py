@@ -8,6 +8,10 @@ from .car_detector import CarDetector
 from django.contrib.auth.decorators import login_required, permission_required
 from vehicules.models import Vehicle
 from .models import Detection
+from .email_utils import send_vehicle_found_email
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @login_required
@@ -120,9 +124,22 @@ def save_corrected_plates(request):
                         user=request.user
                     )
                     
+                    # Vérifier si le véhicule est volé et envoyer un email automatiquement
+                    email_sent = False
+                    if vehicle.is_stolen:
+                        try:
+                            email_sent = send_vehicle_found_email(vehicle, detection, request.user)
+                            if email_sent:
+                                logger.info(f"Email envoyé avec succès pour le véhicule volé {vehicle.plate}")
+                            else:
+                                logger.warning(f"Échec de l'envoi d'email pour le véhicule volé {vehicle.plate}")
+                        except Exception as e:
+                            logger.error(f"Erreur lors de l'envoi d'email pour {vehicle.plate}: {str(e)}")
+                    
                     entry.update({
                         'found': True,
                         'detection_id': detection.id,
+                        'email_sent': email_sent,
                         'vehicle': {
                             'plate': vehicle.plate,
                             'brand': vehicle.brand,
@@ -164,11 +181,28 @@ def save_corrected_plates(request):
 
                 matches.append(entry)
             
+            # Compter les emails envoyés
+            emails_sent = sum(1 for match in matches if match.get('email_sent', False))
+            stolen_vehicles_found = sum(1 for match in matches if match.get('found', False) and match.get('vehicle', {}).get('is_stolen', False))
+            
+            # Préparer le message de réponse
+            message = f'{len(corrected_plates)} plaque(s) sauvegardée(s) avec succès'
+            if stolen_vehicles_found > 0:
+                message += f' - {stolen_vehicles_found} véhicule(s) volé(s) détecté(s)'
+                if emails_sent > 0:
+                    message += f' - {emails_sent} email(s) de notification envoyé(s)'
+            
             return JsonResponse({
                 'success': True,
-                'message': f'{len(corrected_plates)} plaque(s) sauvegardée(s) avec succès',
+                'message': message,
                 'plates': corrected_plates,
-                'matches': matches
+                'matches': matches,
+                'stats': {
+                    'total_plates': len(corrected_plates),
+                    'vehicles_found': len([m for m in matches if m.get('found', False)]),
+                    'stolen_vehicles_found': stolen_vehicles_found,
+                    'emails_sent': emails_sent
+                }
             })
             
         except Exception as e:
@@ -296,6 +330,62 @@ def extract_manual_plate(request):
                 })
             
         except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+
+
+@login_required
+@permission_required('detection.add_detection', raise_exception=True)
+def test_email_system(request):
+    """Vue de test pour vérifier le système d'envoi d'email"""
+    if request.method == 'POST':
+        try:
+            from .email_utils import test_email_configuration
+            import json
+            
+            data = json.loads(request.body)
+            vehicle_id = data.get('vehicle_id')
+            
+            if not vehicle_id:
+                return JsonResponse({'error': 'ID du véhicule requis'}, status=400)
+            
+            # Vérifier la configuration email
+            if not test_email_configuration():
+                return JsonResponse({
+                    'error': 'Configuration email invalide. Vérifiez les paramètres EMAIL_* dans settings.py'
+                }, status=500)
+            
+            # Récupérer le véhicule
+            try:
+                vehicle = Vehicle.objects.get(id=vehicle_id)
+            except Vehicle.DoesNotExist:
+                return JsonResponse({'error': 'Véhicule non trouvé'}, status=404)
+            
+            # Créer une détection de test
+            detection = Detection.objects.create(
+                detected_plate=vehicle.plate,
+                found_vehicle=vehicle,
+                user=request.user
+            )
+            
+            # Envoyer l'email de test
+            email_sent = send_vehicle_found_email(vehicle, detection, request.user)
+            
+            if email_sent:
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Email de test envoyé avec succès à {vehicle.owner.email}',
+                    'vehicle_plate': vehicle.plate,
+                    'owner_email': vehicle.owner.email
+                })
+            else:
+                return JsonResponse({
+                    'error': 'Échec de l\'envoi de l\'email de test'
+                }, status=500)
+                
+        except Exception as e:
+            logger.error(f"Erreur lors du test d'email: {str(e)}")
             return JsonResponse({'error': str(e)}, status=500)
     
     return JsonResponse({'error': 'Méthode non autorisée'}, status=405)

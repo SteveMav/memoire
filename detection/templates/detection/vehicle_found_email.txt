@@ -1,0 +1,36 @@
+VÉHICULE RETROUVÉ - Système Mémoire
+=====================================
+
+Bonjour {{ owner.first_name }} {{ owner.last_name }},
+
+Nous avons le plaisir de vous informer que votre véhicule, précédemment déclaré volé, a été détecté par notre système de surveillance automatique.
+
+INFORMATIONS DU VÉHICULE
+-------------------------
+Plaque d'immatriculation : {{ vehicle.plate }}
+Marque : {{ vehicle.brand }}
+Modèle : {{ vehicle.model }}
+Couleur : {{ vehicle.color }}
+{% if vehicle.year %}Année : {{ vehicle.year }}{% endif %}
+Date de déclaration de vol : {{ vehicle.stolen_date|date:"d/m/Y à H:i" }}
+
+DÉTAILS DE LA DÉTECTION
+------------------------
+Agent détecteur : {{ agent.first_name }} {{ agent.last_name }} ({{ agent.username }})
+Date et heure de détection : {{ detection_date|date:"d/m/Y à H:i" }}
+Plaque détectée : {{ detected_plate }}
+
+PROCHAINES ÉTAPES
+-----------------
+- Nos services vous recontacteront dans les plus brefs délais
+- Veuillez garder ce message comme preuve de détection
+- Préparez vos documents d'identité et de propriété du véhicule
+- Ne vous rendez pas sur les lieux par vous-même
+
+Nous vous remercions pour votre patience et sommes heureux de pouvoir vous aider dans la récupération de votre véhicule.
+
+---
+Système Mémoire - Détection Automatique de Véhicules
+Email généré automatiquement le {{ current_date|date:"d/m/Y à H:i" }}
+Cet email a été envoyé automatiquement, merci de ne pas y répondre.
+Pour toute question, contactez nos services compétents.
