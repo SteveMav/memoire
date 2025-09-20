@@ -67,7 +67,13 @@ def send_vehicle_found_email(vehicle, detection, agent):
         # Envoyer l'email
         email.send()
         
+        # Mettre à jour le statut du véhicule : ne plus le marquer comme volé
+        vehicle.is_stolen = False
+        vehicle.stolen_date = None
+        vehicle.save()
+        
         logger.info(f"Email envoyé avec succès pour le véhicule {vehicle.plate} à {vehicle.owner.email}")
+        logger.info(f"Statut du véhicule {vehicle.plate} mis à jour : plus marqué comme volé")
         return True
         
     except Exception as e:

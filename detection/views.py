@@ -190,7 +190,7 @@ def save_corrected_plates(request):
             if stolen_vehicles_found > 0:
                 message += f' - {stolen_vehicles_found} véhicule(s) volé(s) détecté(s)'
                 if emails_sent > 0:
-                    message += f' - {emails_sent} email(s) de notification envoyé(s)'
+                    message += f' - {emails_sent} email(s) de notification envoyé(s) et statut mis à jour'
             
             return JsonResponse({
                 'success': True,
