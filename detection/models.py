@@ -34,7 +34,7 @@ class Infraction(models.Model):
         verbose_name="Code de l'article",
         help_text="Référence de l'article dans le code de la route (ex: 106.4)."
     )
-    categorie = models.CharField(
+    category = models.CharField(
         max_length=50,
         choices=CATEGORIE_CHOICES,
         verbose_name="Catégorie de l'infraction"
@@ -42,35 +42,20 @@ class Infraction(models.Model):
     description = models.TextField(
         verbose_name="Description de l'infraction"
     )
-    montant_min = models.DecimalField(
+    amount_min = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,
         verbose_name="Amende minimale (Z)"
     )
-    montant_max = models.DecimalField(
+    amount_max = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,
         verbose_name="Amende maximale (Z)"
     )
-    double_en_recidive = models.BooleanField(
-        default=False,
-        verbose_name="Amende doublée en cas de récidive"
-    )
-    peut_entrainer_suspension = models.BooleanField(
-        default=False,
-        verbose_name="Peut entraîner une suspension du permis",
-        help_text="Basé sur l'article 131."
-    )
-    peut_entrainer_immobilisation = models.BooleanField(
-        default=False,
-        verbose_name="Peut entraîner une immobilisation du véhicule",
-        help_text="Basé sur l'article 136."
-    )
-
     class Meta:
         verbose_name = "Infraction"
         verbose_name_plural = "Infractions"

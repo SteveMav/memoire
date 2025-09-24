@@ -247,8 +247,15 @@ def extract_manual_plate(request):
             if x1 >= x2 or y1 >= y2:
                 return JsonResponse({'error': f'Coordonnées invalides: x1={x1}, y1={y1}, x2={x2}, y2={y2}'}, status=400)
             
+            # Nettoyer le chemin de l'image (supprimer le préfixe media/ s'il existe)
+            clean_image_path = image_path
+            if clean_image_path.startswith('media/'):
+                clean_image_path = clean_image_path[6:]  # Supprimer 'media/'
+            
             # Charger l'image originale
-            full_image_path = os.path.join(settings.MEDIA_ROOT, image_path)
+            full_image_path = os.path.join(settings.MEDIA_ROOT, clean_image_path)
+            logger.info(f"Chemin original: {image_path}")
+            logger.info(f"Chemin nettoyé: {clean_image_path}")
             logger.info(f"Chemin complet de l'image: {full_image_path}")
             
             if not os.path.exists(full_image_path):

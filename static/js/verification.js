@@ -11,26 +11,98 @@ document.addEventListener('click', function(e) {
     }
 });
 
+// Fonction de test pour debug
+window.testManualPlateDetection = function() {
+    console.log('=== TEST MANUEL ===');
+    
+    const manualArea = document.getElementById('manualSelectionArea');
+    console.log('Zone manuelle visible:', manualArea ? manualArea.style.display : 'Zone non trouvée');
+    
+    const manualResults = document.getElementById('manualPlateResults');
+    console.log('Zone résultats manuels:', !!manualResults);
+    if (manualResults) {
+        console.log('Contenu zone résultats:', manualResults.innerHTML.length > 0);
+        
+        // Chercher les inputs dans cette zone
+        const inputs = manualResults.querySelectorAll('input[type="text"]');
+        console.log('Inputs trouvés dans manualPlateResults:', inputs.length);
+        inputs.forEach((input, index) => {
+            console.log(`  Input ${index}: id="${input.id}", value="${input.value}", visible=${input.offsetParent !== null}`);
+        });
+    }
+    
+    // Test direct de l'élément manualPlateText
+    const manualInput = document.getElementById('manualPlateText');
+    console.log('Élément #manualPlateText trouvé directement:', !!manualInput);
+    if (manualInput) {
+        console.log('  Valeur:', manualInput.value);
+        console.log('  Parent:', manualInput.parentElement?.id || 'pas d\'ID parent');
+    }
+    
+    console.log('=== FIN TEST ===');
+};
+
 // Fonction principale pour vérifier les véhicules
 function verifyVehicles() {
     console.log('Fonction verifyVehicles appelée');
     
-    const inputs = document.querySelectorAll('.plate-text-input');
-    console.log('Inputs trouvés pour vérification:', inputs.length);
+    // Appeler le test de debug
+    window.testManualPlateDetection();
     
-    if (inputs.length === 0) {
+    // Récupérer les plaques détectées automatiquement
+    const autoInputs = document.querySelectorAll('.plate-text-input');
+    console.log('Plaques automatiques trouvées:', autoInputs.length);
+    
+    // Récupérer les plaques détectées manuellement dans la zone manualPlateResults
+    const manualResultsArea = document.getElementById('manualPlateResults');
+    console.log('Zone manualPlateResults trouvée:', manualResultsArea ? 'Oui' : 'Non');
+    
+    let manualInputs = [];
+    if (manualResultsArea) {
+        // Chercher tous les inputs dans la zone des résultats manuels
+        manualInputs = manualResultsArea.querySelectorAll('input[type="text"]');
+        console.log('Inputs manuels trouvés dans manualPlateResults:', manualInputs.length);
+        
+        manualInputs.forEach((input, index) => {
+            console.log(`Input manuel ${index}: id="${input.id}", value="${input.value}"`);
+        });
+    } else {
+        console.log('Zone manualPlateResults non trouvée');
+    }
+    
+    const plates = [];
+    
+    // Ajouter les plaques automatiques
+    Array.from(autoInputs).forEach(input => {
+        plates.push({
+            plate_id: input.dataset.plateId,
+            corrected_text: input.value.trim(),
+            source: 'automatic'
+        });
+    });
+    
+    // Ajouter les plaques manuelles si elles existent
+    Array.from(manualInputs).forEach((input, index) => {
+        if (input.value.trim()) {
+            plates.push({
+                plate_id: input.id || ('manual_' + Date.now() + '_' + index),
+                corrected_text: input.value.trim(),
+                source: 'manual'
+            });
+        }
+    });
+    
+    console.log('Total des plaques à vérifier:', plates.length);
+    console.log('Détail des plaques:', plates);
+    
+    if (plates.length === 0) {
         if (window.showWarning) {
-            window.showWarning('Aucune plaque à vérifier');
+            window.showWarning('Aucune plaque à vérifier (ni automatique, ni manuelle)');
         } else {
-            alert('Aucune plaque à vérifier');
+            alert('Aucune plaque à vérifier (ni automatique, ni manuelle)');
         }
         return;
     }
-    
-    const plates = Array.from(inputs).map(input => ({
-        plate_id: input.dataset.plateId,
-        corrected_text: input.value.trim()
-    }));
     
     const verifyBtn = document.getElementById('verifyPlatesBtn');
     if (!verifyBtn) {
@@ -73,8 +145,16 @@ function verifyVehicles() {
         return response.json();
     })
     .then(data => {
-        console.log('Données vérification reçues:', data);
+        console.log('Données reçues:', data);
         if (data.success) {
+            // Ajouter l'information de source aux résultats
+            if (data.matches) {
+                data.matches.forEach((match, index) => {
+                    if (index < plates.length) {
+                        match.source = plates[index].source;
+                    }
+                });
+            }
             displayVehicleVerificationResults(data.matches);
         } else {
             throw new Error(data.error || 'Erreur de vérification');
@@ -127,6 +207,10 @@ function displayVehicleVerificationResults(matches) {
                 <h6 class="mb-0">
                   <i class="fas ${match.found ? 'fa-check-circle' : 'fa-times-circle'} me-2"></i>
                   Plaque: <span class="fw-bold">${(match.normalized_plate || match.query_plate || '').toUpperCase()}</span>
+                  ${match.source ? `<span class="badge ${match.source === 'manual' ? 'bg-warning' : 'bg-info'} ms-2">
+                    <i class="fas ${match.source === 'manual' ? 'fa-hand-pointer' : 'fa-magic'} me-1"></i>
+                    ${match.source === 'manual' ? 'Manuelle' : 'Automatique'}
+                  </span>` : ''}
                 </h6>
               </div>
               <div class="card-body">
@@ -265,7 +349,11 @@ window.testDirectVerify = function() {
         } else {
             alert('Erreur test vérification: ' + error.message);
         }
+        console.log('Verification JS reloaded at:', new Date().toISOString());
+        console.log('Version: Support détection manuelle v2.0');
     });
 };
 
+// Force le rechargement du cache - Version avec support détection manuelle
 console.log('Verification JS loaded at:', new Date().toISOString());
+console.log('🔄 Version: Support détection manuelle v2.0 - Cache busted!');

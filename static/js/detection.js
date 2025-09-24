@@ -226,19 +226,37 @@ document.addEventListener('DOMContentLoaded', function() {
             
         }
         
+        // Ajouter le bouton de détection manuelle (toujours visible)
+        resultsDiv.innerHTML += `
+            <div class="mt-4">
+                <div class="text-center">
+                    <button type="button" class="btn btn-primary btn-lg px-4" id="enableManualSelection">
+                        <i class="fas fa-crop me-2"></i>Sélectionner une plaque manuellement
+                    </button>
+                    <p class="text-muted mt-2 mb-0">
+                        <small>Utilisez cette option si une plaque n'a pas été détectée automatiquement</small>
+                    </p>
+                </div>
+            </div>
+        `;
+        
+        // Attachement de l'événement pour le bouton de détection manuelle
+        setTimeout(() => {
+            const manualBtn = document.getElementById('enableManualSelection');
+            if (manualBtn) {
+                console.log('Bouton enableManualSelection trouvé');
+                manualBtn.addEventListener('click', function(e) {
+                    console.log('Clic sur enableManualSelection détecté');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    enableManualSelection();
+                });
+                console.log('Événement attaché au bouton enableManualSelection');
+            }
+        }, 200);
+        
         // Afficher la section de vérification permanente
         showPermanentVerificationSection();
-        
-        // Ajouter l'événement pour la sélection manuelle
-        setTimeout(() => {
-            const btn = document.getElementById('enableManualSelection');
-            if (btn) {
-                console.log('Bouton trouvé, ajout de l\'événement');
-                btn.addEventListener('click', enableManualSelection);
-            } else {
-                console.error('Bouton enableManualSelection non trouvé');
-            }
-        }, 100);
         
         resultsSection.style.display = 'block';
         
@@ -571,54 +589,70 @@ let currentImage = null;
 
 // Fonction pour activer la sélection manuelle
 function enableManualSelection() {
-    const manualArea = document.getElementById('manualSelectionArea');
-    const enableBtn = document.getElementById('enableManualSelection');
+    console.log('Activation de la sélection manuelle');
     
-    manualArea.style.display = 'block';
-    enableBtn.disabled = true;
-    enableBtn.innerHTML = '<i class="fas fa-check me-2"></i>Mode sélection activé';
-    
-    // Trouver l'image de résultat
-    currentImage = document.querySelector('#resultsSection img');
-    if (!currentImage) {
+    // Trouver l'image des résultats
+    const resultImages = document.querySelectorAll('#detectionResults img');
+    if (resultImages.length === 0) {
         if (window.showError) {
-            window.showError('Erreur: Image non trouvée');
+            window.showError('Aucune image trouvée pour la sélection manuelle');
         } else {
-            alert('Erreur: Image non trouvée');
+            alert('Aucune image trouvée pour la sélection manuelle');
         }
         return;
     }
     
-    // Ajouter les événements de sélection
+    // Utiliser la première image (image originale)
+    currentImage = resultImages[0];
+    
+    // Afficher la section de sélection manuelle
+    const manualArea = document.getElementById('manualSelectionArea');
+    if (manualArea) {
+        manualArea.style.display = 'block';
+    }
+    
+    // Changer le curseur et ajouter les événements
     currentImage.style.cursor = 'crosshair';
     currentImage.addEventListener('mousedown', startSelection);
     currentImage.addEventListener('mousemove', updateSelection);
     currentImage.addEventListener('mouseup', endSelection);
     
-    // Empêcher la sélection de texte sur l'image
-    currentImage.style.userSelect = 'none';
-    currentImage.style.webkitUserSelect = 'none';
-    currentImage.style.mozUserSelect = 'none';
-    currentImage.style.msUserSelect = 'none';
+    // Désactiver le bouton
+    const manualBtn = document.getElementById('enableManualSelection');
+    if (manualBtn) {
+        manualBtn.disabled = true;
+        manualBtn.innerHTML = '<i class="fas fa-crop me-2"></i>Sélection activée - Cliquez et glissez sur l\'image';
+    }
     
-    // Créer le conteneur de sélection
-    const imageContainer = currentImage.parentElement;
-    imageContainer.style.position = 'relative';
+    if (window.showInfo) {
+        window.showInfo('Sélection manuelle activée ! Cliquez et glissez sur l\'image pour sélectionner une plaque.');
+    } else {
+        alert('Sélection manuelle activée ! Cliquez et glissez sur l\'image pour sélectionner une plaque.');
+    }
 }
 
 function startSelection(e) {
+    if (!currentImage) return;
+    
     e.preventDefault();
+    e.stopPropagation();
+    
     isSelecting = true;
+    
+    // S'assurer que le conteneur parent a position relative
+    const parent = currentImage.parentElement;
+    if (getComputedStyle(parent).position === 'static') {
+        parent.style.position = 'relative';
+    }
+    
     const rect = currentImage.getBoundingClientRect();
+    const parentRect = parent.getBoundingClientRect();
+    
+    // Calculer les coordonnées relatives au conteneur parent
     startX = e.clientX - rect.left;
     startY = e.clientY - rect.top;
     
-    console.log(`Start selection at: (${startX}, ${startY})`);
-    
-    // Supprimer l'ancienne boîte de sélection si elle existe
-    if (selectionBox) {
-        selectionBox.remove();
-    }
+    console.log('Start selection:', { startX, startY });
     
     // Créer la boîte de sélection
     selectionBox = document.createElement('div');
@@ -627,28 +661,49 @@ function startSelection(e) {
     selectionBox.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
     selectionBox.style.pointerEvents = 'none';
     selectionBox.style.zIndex = '1000';
-    selectionBox.style.left = startX + 'px';
-    selectionBox.style.top = startY + 'px';
+    
+    // Positionner relativement à l'image
+    const imageRect = currentImage.getBoundingClientRect();
+    const containerRect = parent.getBoundingClientRect();
+    
+    const offsetX = imageRect.left - containerRect.left;
+    const offsetY = imageRect.top - containerRect.top;
+    
+    selectionBox.style.left = (offsetX + startX) + 'px';
+    selectionBox.style.top = (offsetY + startY) + 'px';
     selectionBox.style.width = '0px';
     selectionBox.style.height = '0px';
-    currentImage.parentElement.appendChild(selectionBox);
+    
+    parent.appendChild(selectionBox);
 }
 
 function updateSelection(e) {
     if (!isSelecting || !selectionBox) return;
     
     e.preventDefault();
+    e.stopPropagation();
+    
     const rect = currentImage.getBoundingClientRect();
     endX = e.clientX - rect.left;
     endY = e.clientY - rect.top;
     
+    // Calculer les dimensions de la sélection
     const left = Math.min(startX, endX);
     const top = Math.min(startY, endY);
     const width = Math.abs(endX - startX);
     const height = Math.abs(endY - startY);
     
-    selectionBox.style.left = left + 'px';
-    selectionBox.style.top = top + 'px';
+    // Calculer l'offset de l'image par rapport à son conteneur
+    const parent = currentImage.parentElement;
+    const imageRect = currentImage.getBoundingClientRect();
+    const containerRect = parent.getBoundingClientRect();
+    
+    const offsetX = imageRect.left - containerRect.left;
+    const offsetY = imageRect.top - containerRect.top;
+    
+    // Positionner la boîte de sélection
+    selectionBox.style.left = (offsetX + left) + 'px';
+    selectionBox.style.top = (offsetY + top) + 'px';
     selectionBox.style.width = width + 'px';
     selectionBox.style.height = height + 'px';
     
@@ -661,6 +716,9 @@ function updateSelection(e) {
 function endSelection(e) {
     if (!isSelecting) return;
     
+    e.preventDefault();
+    e.stopPropagation();
+    
     isSelecting = false;
     const rect = currentImage.getBoundingClientRect();
     endX = e.clientX - rect.left;
@@ -672,6 +730,26 @@ function endSelection(e) {
     console.log(`End: (${endX}, ${endY})`);
     console.log(`Image display size: ${currentImage.width}x${currentImage.height}`);
     console.log(`Image natural size: ${currentImage.naturalWidth}x${currentImage.naturalHeight}`);
+    
+    // Calculer les dimensions sur l'image affichée
+    const displayWidth = Math.abs(endX - startX);
+    const displayHeight = Math.abs(endY - startY);
+    
+    console.log(`Sélection sur image affichée: ${displayWidth}x${displayHeight} pixels`);
+    
+    // Validation - s'assurer qu'il y a une sélection valide
+    if (displayWidth < 10 || displayHeight < 10) {
+        if (window.showWarning) {
+            window.showWarning(`Sélection trop petite (${Math.round(displayWidth)}x${Math.round(displayHeight)} pixels). Faites glisser pour créer un rectangle de sélection d'au moins 10x10 pixels.`);
+        } else {
+            alert(`Sélection trop petite (${Math.round(displayWidth)}x${Math.round(displayHeight)} pixels). Faites glisser pour créer un rectangle de sélection d'au moins 10x10 pixels.`);
+        }
+        if (selectionBox) {
+            selectionBox.remove();
+            selectionBox = null;
+        }
+        return;
+    }
     
     // Calculer les coordonnées relatives à l'image originale
     const scaleX = currentImage.naturalWidth / currentImage.width;
@@ -688,26 +766,8 @@ function endSelection(e) {
     const width = Math.abs(x2 - x1);
     const height = Math.abs(y2 - y1);
     
-    // Calculer aussi les dimensions sur l'image affichée
-    const displayWidth = Math.abs(endX - startX);
-    const displayHeight = Math.abs(endY - startY);
-    
-    console.log(`Sélection sur image affichée: ${displayWidth}x${displayHeight} pixels`);
     console.log(`Sélection sur image originale: ${Math.round(width)}x${Math.round(height)} pixels`);
-    
-    // Validation - s'assurer qu'il y a une sélection valide
-    if (displayWidth < 10 || displayHeight < 10) {
-        if (window.showWarning) {
-            window.showWarning(`Sélection trop petite (${Math.round(displayWidth)}x${Math.round(displayHeight)} pixels). Faites glisser pour créer un rectangle de sélection d'au moins 10x10 pixels.`);
-        } else {
-            alert(`Sélection trop petite (${Math.round(displayWidth)}x${Math.round(displayHeight)} pixels). Faites glisser pour créer un rectangle de sélection d'au moins 10x10 pixels.`);
-        }
-        if (selectionBox) {
-            selectionBox.remove();
-            selectionBox = null;
-        }
-        return;
-    }
+    console.log(`Coordonnées finales: x1=${Math.round(x1)}, y1=${Math.round(y1)}, x2=${Math.round(x2)}, y2=${Math.round(y2)}`);
     
     // Extraire le texte de la région sélectionnée
     extractManualPlate(x1, y1, x2, y2);
@@ -715,25 +775,22 @@ function endSelection(e) {
 
 function extractManualPlate(x1, y1, x2, y2) {
     const loadingDiv = document.getElementById('manualPlateResults');
-    loadingDiv.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Extraction du texte en cours...</div>';
-    
-    // Récupérer le chemin de l'image depuis l'attribut src
-    const imageSrc = currentImage.src;
-    let imagePath = imageSrc.split('/').slice(-1)[0]; // Récupérer juste le nom du fichier
-    
-    // Si l'image path contient des paramètres de cache, les supprimer
-    if (imagePath.includes('?')) {
-        imagePath = imagePath.split('?')[0];
+    if (loadingDiv) {
+        loadingDiv.innerHTML = '<div class="text-center"><i class="fas fa-spinner fa-spin me-2"></i>Extraction du texte en cours...</div>';
     }
     
-    console.log('Image source:', imageSrc);
-    console.log('Image path extracted:', imagePath);
-    console.log('Coordinates:', {x1, y1, x2, y2});
+    // Récupérer le chemin de l'image depuis les données de la dernière détection
+    let imagePath = null;
+    if (window.lastDetectionData && window.lastDetectionData.original_image) {
+        imagePath = window.lastDetectionData.original_image;
+    }
     
-    
-    // Validation des coordonnées
-    if (x1 >= x2 || y1 >= y2) {
-        loadingDiv.innerHTML = '<div class="alert alert-danger">Erreur: Coordonnées invalides</div>';
+    if (!imagePath) {
+        if (window.showError) {
+            window.showError('Impossible de trouver le chemin de l\'image');
+        } else {
+            alert('Impossible de trouver le chemin de l\'image');
+        }
         return;
     }
     
@@ -769,12 +826,16 @@ function extractManualPlate(x1, y1, x2, y2) {
         if (data.success) {
             displayManualPlateResult(data);
         } else {
-            loadingDiv.innerHTML = `<div class="alert alert-danger">Erreur: ${data.error}</div>`;
+            if (loadingDiv) {
+                loadingDiv.innerHTML = `<div class="alert alert-danger">Erreur: ${data.error}</div>`;
+            }
         }
     })
     .catch(error => {
         console.error('Erreur complète:', error);
-        loadingDiv.innerHTML = `<div class="alert alert-danger">Erreur: ${error.message}</div>`;
+        if (loadingDiv) {
+            loadingDiv.innerHTML = `<div class="alert alert-danger">Erreur: ${error.message}</div>`;
+        }
     });
     
     // Nettoyer la sélection
@@ -783,29 +844,28 @@ function extractManualPlate(x1, y1, x2, y2) {
         selectionBox = null;
     }
     currentImage.style.cursor = 'default';
+    
+    // Réactiver le bouton de sélection manuelle
+    const manualBtn = document.getElementById('enableManualSelection');
+    if (manualBtn) {
+        manualBtn.disabled = false;
+        manualBtn.innerHTML = '<i class="fas fa-crop me-2"></i>Sélectionner une plaque manuellement';
+    }
 }
 
 function displayManualPlateResult(data) {
     const resultsDiv = document.getElementById('manualPlateResults');
-    
-    // Déterminer le titre et la couleur selon la méthode de détection
-    const isAutoDetected = data.detection_method === 'automatic_in_manual_region';
-    const headerClass = isAutoDetected ? 'bg-primary' : 'bg-success';
-    const headerText = isAutoDetected ? 
-        '<i class="fas fa-magic me-2"></i>Plaque détectée automatiquement dans la région' : 
-        '<i class="fas fa-hand-pointer me-2"></i>Plaque extraite manuellement';
+    if (!resultsDiv) return;
     
     resultsDiv.innerHTML = `
         <div class="card mt-3">
-            <div class="card-header ${headerClass} text-white">
-                <h6 class="mb-0">${headerText}</h6>
-                ${isAutoDetected ? '<small>L\'algorithme a trouvé une plaque dans votre sélection</small>' : ''}
+            <div class="card-header bg-success text-white">
+                <h6 class="mb-0"><i class="fas fa-hand-pointer me-2"></i>Plaque extraite manuellement</h6>
             </div>
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-4">
                         <img src="/${data.plate_image}" class="img-fluid border" alt="Plaque extraite">
-                        ${isAutoDetected ? '<small class="text-muted d-block mt-1">Région automatiquement détectée</small>' : ''}
                     </div>
                     <div class="col-md-8">
                         <div class="mb-3">
@@ -818,21 +878,7 @@ function displayManualPlateResult(data) {
                                    style="font-size: 1.2em; color: #0d6efd; border: 2px solid #28a745; background-color: #f8fff9;">
                         </div>
                         <div class="mb-3">
-                            <small class="text-muted">
-                                Confiance: ${Math.round(data.confidence * 100)}% | 
-                                <button type="button" class="btn btn-sm btn-outline-primary me-2" onclick="testVerifyButton()">
-                                    Test bouton vérifier
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-success me-2" onclick="testSaveButton()">
-                                    Test bouton sauvegarde
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-info me-2" onclick="testInputs()">
-                                    Test inputs
-                                </button>
-                                <button type="button" class="btn btn-sm btn-outline-warning" onclick="testDirectSave()">
-                                    Test sauvegarde directe
-                                </button>
-                            </small>
+                            <small class="text-muted">Confiance: ${Math.round(data.confidence * 100)}%</small>
                         </div>
                         <button type="button" class="btn btn-success" onclick="saveManualPlate()">
                             <i class="fas fa-save me-2"></i>Sauvegarder cette plaque
@@ -848,17 +894,13 @@ function displayManualPlateResult(data) {
 }
 
 function saveManualPlate() {
-    console.log('Fonction saveManualPlate appelée');
     const plateText = document.getElementById('manualPlateText').value;
-    console.log('Texte de plaque:', plateText);
+    console.log('Sauvegarde plaque manuelle:', plateText);
     
-    // Récupération du token CSRF avec vérification
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
-                     document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
-                     '';
+    // Utiliser la même fonction de sauvegarde que pour les plaques automatiques
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
     
     if (!csrfToken) {
-        console.error('Token CSRF non trouvé dans saveManualPlate !');
         if (window.showError) {
             window.showError('Erreur: Token CSRF manquant');
         } else {
@@ -875,165 +917,86 @@ function saveManualPlate() {
         },
         body: JSON.stringify({
             plates: [{
-                plate_text: plateText,
-                source: 'manual_selection'
+                plate_id: 'manual_' + Date.now(),
+                corrected_text: plateText
             }]
         })
     })
     .then(response => response.json())
     .then(data => {
+        console.log('Réponse saveManualPlate:', data);
         if (data.success) {
-            const root = document.getElementById('manualPlateResults');
-            let html = `
-                <div class="alert alert-success"><i class="fas fa-check-circle me-2"></i>${data.message}</div>
-            `;
-            if (Array.isArray(data.matches) && data.matches.length) {
-                const m = data.matches[0];
-                html += `
-                <div class="card mt-2">
-                  <div class="card-header ${m.found ? 'bg-success' : 'bg-danger'} text-white">
-                    ${m.found ? 'Véhicule trouvé' : 'Aucun véhicule trouvé'} — Plaque: <span class="fw-bold">${(m.normalized_plate || m.query_plate || '').toUpperCase()}</span>
-                  </div>
-                  <div class="card-body">
-                    ${m.found ? `
-                      <div class="row">
-                        <div class="col-md-6">
-                          <h6 class="mb-2"><i class="fas fa-car me-2"></i>Véhicule</h6>
-                          <div><strong>Marque/Modèle:</strong> ${m.vehicle.brand || ''} ${m.vehicle.model || ''}</div>
-                          <div><strong>Couleur:</strong> ${m.vehicle.color || '—'}</div>
-                          <div><strong>Année:</strong> ${m.vehicle.year ?? '—'}</div>
-                          <div><strong>Statut:</strong> ${m.vehicle.is_stolen ? '<span class="badge bg-danger">Déclaré volé</span>' : '<span class="badge bg-success">Normal</span>'}</div>
-                        </div>
-                        <div class="col-md-6">
-                          <h6 class="mb-2"><i class="fas fa-user me-2"></i>Propriétaire</h6>
-                          <div>${[m.owner.first_name, m.owner.last_name].filter(Boolean).join(' ') || m.owner.username}</div>
-                          <div class="text-muted">${m.owner.email || ''}</div>
-                        </div>
-                      </div>
-                    ` : `
-                      <div class="text-muted">${m.message || 'Aucun véhicule correspondant trouvé.'}</div>
-                    `}
-                  </div>
-                </div>
-                `;
+            if (window.showSuccess) {
+                window.showSuccess(data.message);
+            } else {
+                alert('Plaque sauvegardée avec succès !');
             }
-            root.innerHTML = html;
+            
+            // Afficher les résultats de correspondance si disponibles
+            if (data.matches && data.matches.length > 0) {
+                const match = data.matches[0];
+                if (match.found) {
+                    if (window.showInfo) {
+                        window.showInfo(`Véhicule trouvé ! ${match.vehicle.brand} ${match.vehicle.model} - Propriétaire: ${[match.owner.first_name, match.owner.last_name].filter(Boolean).join(' ') || match.owner.username}`);
+                    }
+                } else {
+                    if (window.showWarning) {
+                        window.showWarning(`Aucun véhicule trouvé pour la plaque ${plateText}`);
+                    }
+                }
+            }
         } else {
-            const root = document.getElementById('manualPlateResults');
-            root.innerHTML = `<div class="alert alert-danger">Erreur: ${data.error || 'Erreur lors de la sauvegarde'}</div>`;
+            if (window.showError) {
+                window.showError('Erreur: ' + (data.error || 'Erreur inconnue'));
+            } else {
+                alert('Erreur: ' + (data.error || 'Erreur inconnue'));
+            }
         }
     })
     .catch(error => {
-        console.error('Erreur:', error);
-        const root = document.getElementById('manualPlateResults');
-        root.innerHTML = `<div class="alert alert-danger">Erreur lors de la sauvegarde: ${error.message}</div>`;
+        console.error('Erreur saveManualPlate:', error);
+        if (window.showError) {
+            window.showError('Erreur: ' + error.message);
+        } else {
+            alert('Erreur: ' + error.message);
+        }
     });
 }
 
 function resetManualSelection() {
-    document.getElementById('manualPlateResults').innerHTML = '';
-    document.getElementById('enableManualSelection').disabled = false;
-    document.getElementById('enableManualSelection').innerHTML = '<i class="fas fa-crop me-2"></i>Sélectionner une plaque manuellement';
+    const manualResults = document.getElementById('manualPlateResults');
+    if (manualResults) {
+        manualResults.innerHTML = '';
+    }
     
-    // Réactiver la sélection
+    const manualBtn = document.getElementById('enableManualSelection');
+    if (manualBtn) {
+        manualBtn.disabled = false;
+        manualBtn.innerHTML = '<i class="fas fa-crop me-2"></i>Sélectionner une plaque manuellement';
+    }
+    
+    // Nettoyer toute sélection en cours
+    if (selectionBox) {
+        selectionBox.remove();
+        selectionBox = null;
+    }
+    
+    // Réinitialiser les variables
+    isSelecting = false;
+    
+    // Réinitialiser le curseur
     if (currentImage) {
-        currentImage.style.cursor = 'crosshair';
-        currentImage.addEventListener('mousedown', startSelection);
-        currentImage.addEventListener('mousemove', updateSelection);
-        currentImage.addEventListener('mouseup', endSelection);
+        currentImage.style.cursor = 'default';
+        // Supprimer les anciens événements pour éviter les doublons
+        currentImage.removeEventListener('mousedown', startSelection);
+        currentImage.removeEventListener('mousemove', updateSelection);
+        currentImage.removeEventListener('mouseup', endSelection);
+    }
+    
+    if (window.showInfo) {
+        window.showInfo('Sélection manuelle réinitialisée. Cliquez sur le bouton pour recommencer.');
     }
 }
 
 // Force le rechargement du cache
 console.log('Detection JS reloaded at:', new Date().toISOString());
-
-
-// Fonction de test globale pour déboguer
-window.testSaveButton = function() {
-    console.log('Test du bouton de sauvegarde...');
-    const saveBtn = document.getElementById('savePlatesBtn');
-    if (saveBtn) {
-        console.log('Bouton trouvé !');
-        console.log('- ID:', saveBtn.id);
-        console.log('- Classes:', saveBtn.className);
-        console.log('- Disabled:', saveBtn.disabled);
-        console.log('- Data-ready:', saveBtn.getAttribute('data-ready'));
-        console.log('- Parent:', saveBtn.parentElement);
-        console.log('Simulation du clic...');
-        
-        // Créer un événement de clic personnalisé
-        const clickEvent = new MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            view: window
-        });
-        saveBtn.dispatchEvent(clickEvent);
-    } else {
-        console.log('❌ Bouton non trouvé');
-        // Chercher tous les boutons pour voir ce qui existe
-        const allButtons = document.querySelectorAll('button');
-        console.log('Boutons trouvés sur la page:', allButtons.length);
-        allButtons.forEach((btn, i) => {
-            console.log(`Bouton ${i}:`, btn.id, btn.className, btn.textContent.trim().substring(0, 30));
-        });
-    }
-};
-
-// Fonction de test pour vérifier les inputs
-window.testInputs = function() {
-    const inputs = document.querySelectorAll('.plate-text-input');
-    console.log('Inputs trouvés:', inputs.length);
-    inputs.forEach((input, i) => {
-        console.log(`Input ${i}:`, input.value, input.dataset.plateId);
-    });
-};
-
-// Fonction de test pour sauvegarde directe
-window.testDirectSave = function() {
-    console.log('Test de sauvegarde directe...');
-    
-    // Récupération du token CSRF
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
-                     document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
-                     '';
-    
-    if (!csrfToken) {
-        if (window.showError) {
-            window.showError('Token CSRF non trouvé !');
-        } else {
-            alert('Token CSRF non trouvé !');
-        }
-        return;
-    }
-    
-    // Test avec des données factices
-    const testData = {
-        plates: [{
-            plate_id: 'test_1',
-            corrected_text: 'TEST123'
-        }]
-    };
-    
-    console.log('Envoi de données de test:', testData);
-    
-    fetch('/detection/save-corrected-plates/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-CSRFToken': csrfToken
-        },
-        body: JSON.stringify(testData)
-    })
-    .then(response => {
-        console.log('Réponse test:', response.status);
-        return response.json();
-    })
-    .then(data => {
-        console.log('Données test reçues:', data);
-        alert('Test réussi ! Voir la console pour les détails.');
-    })
-    .catch(error => {
-        console.error('Erreur test:', error);
-        alert('Erreur test: ' + error.message);
-    });
-};
