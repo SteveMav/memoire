@@ -13,16 +13,16 @@ def login_view(request):
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
-            username = form.cleaned_data['username']
+            email = form.cleaned_data['email']
             password = form.cleaned_data['password']
-            user = authenticate(request, username=username, password=password)
+            user = authenticate(request, username=email, password=password)
             
             if user is not None:
                 login(request, user)
                 messages.success(request, f'Bienvenue {user.first_name or user.username}!')
                 return redirect('home')
             else:
-                messages.error(request, 'Nom d\'utilisateur ou mot de passe incorrect.')
+                messages.error(request, 'Adresse email ou mot de passe incorrect.')
     else:
         form = LoginForm()
     

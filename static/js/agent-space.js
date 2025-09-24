@@ -273,30 +273,20 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
-     * Affiche une alerte
+     * Affiche une alerte en utilisant le système de toasts
      */
     function showAlert(message, type = 'info') {
-        // Créer l'alerte
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-
-        // Insérer l'alerte au début du contenu principal
-        const mainContent = document.querySelector('.col-md-9');
-        if (mainContent) {
-            mainContent.insertBefore(alertDiv, mainContent.firstChild);
+        // Map Bootstrap alert types to toast types
+        const toastType = type === 'danger' ? 'error' : type;
+        
+        // Use the global toast system
+        if (window.showToast) {
+            window.showToast(message, toastType);
+        } else {
+            // Fallback if toast system is not loaded
+            console.warn('Toast system not available, falling back to console');
+            console.log(`${toastType.toUpperCase()}: ${message}`);
         }
-
-        // Auto-fermeture après 5 secondes
-        setTimeout(() => {
-            if (alertDiv && alertDiv.parentNode) {
-                const bsAlert = new bootstrap.Alert(alertDiv);
-                bsAlert.close();
-            }
-        }, 5000);
     }
 
     /**

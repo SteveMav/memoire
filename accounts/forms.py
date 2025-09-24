@@ -4,19 +4,21 @@ from django.contrib.auth.models import User, Group
 from .models import Profile
 
 class LoginForm(forms.Form):
-    username = forms.CharField(
-        max_length=150,
-        label='Nom d\'utilisateur',
-        widget=forms.TextInput(attrs={
+    email = forms.CharField(
+        max_length=254,
+        label='Adresse email',
+        widget=forms.EmailInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Entrez votre nom d\'utilisateur'
+            'placeholder': 'Entrez votre adresse email',
+            'autocomplete': 'email'
         })
     )
     password = forms.CharField(
         label='Mot de passe',
         widget=forms.PasswordInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Entrez votre mot de passe'
+            'placeholder': 'Entrez votre mot de passe',
+            'autocomplete': 'current-password'
         })
     )
 

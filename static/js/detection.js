@@ -57,7 +57,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if (file.type.startsWith('image/')) {
             displayPreview(file);
         } else {
-            alert('Veuillez sélectionner une image (JPG, JPEG, PNG)');
+            if (window.showError) {
+                window.showError('Veuillez sélectionner une image (JPG, JPEG, PNG)');
+            } else {
+                alert('Veuillez sélectionner une image (JPG, JPEG, PNG)');
+            }
             mediaInput.value = '';
         }
     }
@@ -76,7 +80,11 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         
         if (!mediaInput.files.length) {
-            alert('Veuillez sélectionner une image');
+            if (window.showError) {
+                window.showError('Veuillez sélectionner une image');
+            } else {
+                alert('Veuillez sélectionner une image');
+            }
             return;
         }
         
@@ -106,7 +114,11 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Erreur:', error);
-            alert('Erreur: ' + error.message);
+            if (window.showError) {
+                window.showError('Erreur: ' + error.message);
+            } else {
+                alert('Erreur: ' + error.message);
+            }
         })
         .finally(() => {
             submitBtn.disabled = false;
@@ -271,7 +283,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (!csrfToken) {
             console.error('Token CSRF non trouvé !');
-            alert('Erreur: Token CSRF manquant');
+            if (window.showError) {
+                window.showError('Erreur: Token CSRF manquant');
+            } else {
+                alert('Erreur: Token CSRF manquant');
+            }
             saveBtn.disabled = false;
             saveBtn.innerHTML = originalText;
             return;
@@ -367,7 +383,11 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             console.error('Erreur dans saveCorrectedPlates:', error);
-            alert('Erreur de sauvegarde: ' + error.message);
+            if (window.showError) {
+                window.showError('Erreur de sauvegarde: ' + error.message);
+            } else {
+                alert('Erreur de sauvegarde: ' + error.message);
+            }
         })
         .finally(() => {
             saveBtn.disabled = false;
@@ -383,7 +403,11 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Inputs trouvés:', inputs.length);
         
         if (inputs.length === 0) {
-            alert('Aucune plaque à sauvegarder');
+            if (window.showWarning) {
+                window.showWarning('Aucune plaque à sauvegarder');
+            } else {
+                alert('Aucune plaque à sauvegarder');
+            }
             return;
         }
         
@@ -412,7 +436,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (!csrfToken) {
             console.error('Token CSRF non trouvé !');
-            alert('Erreur: Token CSRF manquant');
+            if (window.showError) {
+                window.showError('Erreur: Token CSRF manquant');
+            } else {
+                alert('Erreur: Token CSRF manquant');
+            }
             saveBtn.disabled = false;
             saveBtn.innerHTML = originalText;
             return;
@@ -499,12 +527,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 }, 5000);
                 
             } else {
-                alert('Erreur lors de la sauvegarde: ' + (data.error || 'Erreur inconnue'));
+                if (window.showError) {
+                    window.showError('Erreur lors de la sauvegarde: ' + (data.error || 'Erreur inconnue'));
+                } else {
+                    alert('Erreur lors de la sauvegarde: ' + (data.error || 'Erreur inconnue'));
+                }
             }
         })
         .catch(error => {
             console.error('Erreur:', error);
-            alert('Erreur lors de la sauvegarde: ' + error.message);
+            if (window.showError) {
+                window.showError('Erreur lors de la sauvegarde: ' + error.message);
+            } else {
+                alert('Erreur lors de la sauvegarde: ' + error.message);
+            }
         })
         .finally(() => {
             // Restaurer le bouton
@@ -545,7 +581,11 @@ function enableManualSelection() {
     // Trouver l'image de résultat
     currentImage = document.querySelector('#resultsSection img');
     if (!currentImage) {
-        alert('Erreur: Image non trouvée');
+        if (window.showError) {
+            window.showError('Erreur: Image non trouvée');
+        } else {
+            alert('Erreur: Image non trouvée');
+        }
         return;
     }
     
@@ -657,7 +697,11 @@ function endSelection(e) {
     
     // Validation - s'assurer qu'il y a une sélection valide
     if (displayWidth < 10 || displayHeight < 10) {
-        alert(`Sélection trop petite (${Math.round(displayWidth)}x${Math.round(displayHeight)} pixels). Faites glisser pour créer un rectangle de sélection d'au moins 10x10 pixels.`);
+        if (window.showWarning) {
+            window.showWarning(`Sélection trop petite (${Math.round(displayWidth)}x${Math.round(displayHeight)} pixels). Faites glisser pour créer un rectangle de sélection d'au moins 10x10 pixels.`);
+        } else {
+            alert(`Sélection trop petite (${Math.round(displayWidth)}x${Math.round(displayHeight)} pixels). Faites glisser pour créer un rectangle de sélection d'au moins 10x10 pixels.`);
+        }
         if (selectionBox) {
             selectionBox.remove();
             selectionBox = null;
@@ -815,7 +859,11 @@ function saveManualPlate() {
     
     if (!csrfToken) {
         console.error('Token CSRF non trouvé dans saveManualPlate !');
-        alert('Erreur: Token CSRF manquant');
+        if (window.showError) {
+            window.showError('Erreur: Token CSRF manquant');
+        } else {
+            alert('Erreur: Token CSRF manquant');
+        }
         return;
     }
     
@@ -950,7 +998,11 @@ window.testDirectSave = function() {
                      '';
     
     if (!csrfToken) {
-        alert('Token CSRF non trouvé !');
+        if (window.showError) {
+            window.showError('Token CSRF non trouvé !');
+        } else {
+            alert('Token CSRF non trouvé !');
+        }
         return;
     }
     

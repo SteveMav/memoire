@@ -45,52 +45,33 @@ document.addEventListener('DOMContentLoaded', function() {
         return '';
     }
 
-    // Show alert message
+    // Show toast message using the global toast system
     function showAlert(message, type) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
+        // Map Bootstrap alert types to toast types
+        const toastType = type === 'danger' ? 'error' : type;
         
-        const alertContainer = document.getElementById('alertContainer');
-        if (alertContainer) {
-            alertContainer.appendChild(alertDiv);
+        // Use the global toast system
+        if (window.showToast) {
+            window.showToast(message, toastType);
         } else {
-            const container = document.querySelector('.container');
-            container.insertBefore(alertDiv, container.firstChild);
+            // Fallback if toast system is not loaded
+            console.warn('Toast system not available, falling back to console');
+            console.log(`${toastType.toUpperCase()}: ${message}`);
         }
-        
-        // Auto remove after 5 seconds
-        setTimeout(() => {
-            if (alertDiv.parentNode) {
-                alertDiv.remove();
-            }
-        }, 5000);
     }
     
-    // Show modal alert message
+    // Show modal alert message using toast system
     function showModalAlert(message, type) {
-        const modalAlertContainer = document.getElementById('modalAlertContainer');
-        if (modalAlertContainer) {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
-            alertDiv.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            `;
-            
-            // Clear existing alerts
-            modalAlertContainer.innerHTML = '';
-            modalAlertContainer.appendChild(alertDiv);
-            
-            // Auto remove after 5 seconds
-            setTimeout(() => {
-                if (alertDiv.parentNode) {
-                    alertDiv.remove();
-                }
-            }, 5000);
+        // Map Bootstrap alert types to toast types
+        const toastType = type === 'danger' ? 'error' : type;
+        
+        // Use the global toast system for modal alerts too
+        if (window.showToast) {
+            window.showToast(message, toastType);
+        } else {
+            // Fallback if toast system is not loaded
+            console.warn('Toast system not available, falling back to console');
+            console.log(`${toastType.toUpperCase()}: ${message}`);
         }
     }
 

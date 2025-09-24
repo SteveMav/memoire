@@ -19,7 +19,11 @@ function verifyVehicles() {
     console.log('Inputs trouvés pour vérification:', inputs.length);
     
     if (inputs.length === 0) {
-        alert('Aucune plaque à vérifier');
+        if (window.showWarning) {
+            window.showWarning('Aucune plaque à vérifier');
+        } else {
+            alert('Aucune plaque à vérifier');
+        }
         return;
     }
     
@@ -45,7 +49,11 @@ function verifyVehicles() {
     
     if (!csrfToken) {
         console.error('Token CSRF non trouvé !');
-        alert('Erreur: Token CSRF manquant');
+        if (window.showError) {
+            window.showError('Erreur: Token CSRF manquant');
+        } else {
+            alert('Erreur: Token CSRF manquant');
+        }
         verifyBtn.disabled = false;
         verifyBtn.innerHTML = originalText;
         return;
@@ -74,7 +82,11 @@ function verifyVehicles() {
     })
     .catch(error => {
         console.error('Erreur dans verifyVehicles:', error);
-        alert('Erreur de vérification: ' + error.message);
+        if (window.showError) {
+            window.showError('Erreur de vérification: ' + error.message);
+        } else {
+            alert('Erreur de vérification: ' + error.message);
+        }
     })
     .finally(() => {
         verifyBtn.disabled = false;
@@ -205,7 +217,11 @@ window.testDirectVerify = function() {
                      '';
     
     if (!csrfToken) {
-        alert('Token CSRF non trouvé !');
+        if (window.showError) {
+            window.showError('Token CSRF non trouvé !');
+        } else {
+            alert('Token CSRF non trouvé !');
+        }
         return;
     }
     
@@ -236,11 +252,19 @@ window.testDirectVerify = function() {
         if (data.matches) {
             displayVehicleVerificationResults(data.matches);
         }
-        alert('Test vérification réussi ! Voir la console pour les détails.');
+        if (window.showSuccess) {
+            window.showSuccess('Test vérification réussi ! Voir la console pour les détails.');
+        } else {
+            alert('Test vérification réussi ! Voir la console pour les détails.');
+        }
     })
     .catch(error => {
         console.error('Erreur test vérification:', error);
-        alert('Erreur test vérification: ' + error.message);
+        if (window.showError) {
+            window.showError('Erreur test vérification: ' + error.message);
+        } else {
+            alert('Erreur test vérification: ' + error.message);
+        }
     });
 };
 
