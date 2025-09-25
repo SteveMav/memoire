@@ -8,12 +8,27 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchLoader = document.getElementById('searchLoader');
     const searchResults = document.getElementById('searchResults');
     const searchResultsContent = document.getElementById('searchResultsContent');
+    
+    // Éléments pour la recherche d'amendes
+    const amendeSearchForm = document.getElementById('amendeSearchForm');
+    const amendeSearchInput = document.getElementById('amendeSearch');
+    const amendeSearchLoader = document.getElementById('amendeSearchLoader');
+    const amendeSearchResults = document.getElementById('amendeSearchResults');
+    const amendeSearchResultsContent = document.getElementById('amendeSearchResultsContent');
 
-    // Gestion du formulaire de recherche
+    // Gestion du formulaire de recherche de plaque
     if (searchForm) {
         searchForm.addEventListener('submit', function(e) {
             e.preventDefault();
             performPlateSearch();
+        });
+    }
+
+    // Gestion du formulaire de recherche d'amende
+    if (amendeSearchForm) {
+        amendeSearchForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            performAmendeSearch();
         });
     }
 
@@ -76,6 +91,49 @@ document.addEventListener('DOMContentLoaded', function() {
         .catch(error => {
             hideLoader();
             console.error('Erreur lors de la recherche:', error);
+            showAlert('Erreur lors de la recherche. Veuillez réessayer.', 'danger');
+        });
+    }
+
+    /**
+     * Effectue la recherche d'amende via AJAX
+     */
+    function performAmendeSearch() {
+        const numeroAmende = amendeSearchInput.value.trim();
+        
+        if (!numeroAmende) {
+            showAlert('Veuillez saisir un numéro d\'amende.', 'warning');
+            return;
+        }
+
+        // Masquer les résultats de recherche de plaque
+        hideSearchResults();
+        
+        // Afficher le loader d'amende
+        showAmendeLoader();
+        hideAmendeSearchResults();
+
+        // Effectuer la requête AJAX
+        fetch(`/accounts/search-amende/?numero=${encodeURIComponent(numeroAmende)}`, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideAmendeLoader();
+            
+            if (data.success) {
+                displayAmendeSearchResults(data);
+            } else {
+                showAlert(data.message || 'Aucune amende trouvée.', 'info');
+            }
+        })
+        .catch(error => {
+            hideAmendeLoader();
+            console.error('Erreur lors de la recherche d\'amende:', error);
             showAlert('Erreur lors de la recherche. Veuillez réessayer.', 'danger');
         });
     }
@@ -236,6 +294,220 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
+     * Affiche les résultats de recherche d'amende
+     */
+    function displayAmendeSearchResults(data) {
+        const amende = data.amende;
+        
+        let html = `
+            <div class="row">
+                <!-- Informations de l'amende -->
+                <div class="col-md-6">
+                    <h6 class="text-warning mb-3">
+                        <i class="fas fa-file-invoice-dollar me-2"></i>
+                        Informations de l'amende
+                    </h6>
+                    <div class="card border-warning">
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <strong>N° Amende:</strong><br>
+                                    <span class="badge bg-warning text-dark fs-6">${amende.numero_amende}</span>
+                                </div>
+                                <div class="col-6">
+                                    <strong>Statut:</strong><br>
+                                    <span class="badge ${getStatutBadgeClass(amende.statut)}">
+                                        ${amende.statut_display}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <strong>Montant:</strong><br>
+                                    <span class="text-danger fw-bold fs-5">${amende.montant.toLocaleString()} Z</span>
+                                </div>
+                                <div class="col-6">
+                                    <strong>Date émission:</strong><br>
+                                    <small>${amende.date_emission}</small>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <strong>Limite paiement:</strong><br>
+                                    <span class="text-danger">${amende.date_limite_paiement}</span>
+                                </div>
+                                <div class="col-6">
+                                    <strong>Date paiement:</strong><br>
+                                    <small>${amende.date_paiement || 'Non payée'}</small>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <strong>Lieu de l'infraction:</strong><br>
+                                <span>${amende.lieu_infraction}</span>
+                            </div>
+                            ${amende.observations ? `
+                                <div class="mb-3">
+                                    <strong>Observations:</strong><br>
+                                    <div class="bg-light p-2 rounded">
+                                        <small>${amende.observations.replace(/\\n/g, '<br>')}</small>
+                                    </div>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Informations du véhicule et propriétaire -->
+                <div class="col-md-6">
+                    <h6 class="text-primary mb-3">
+                        <i class="fas fa-car me-2"></i>
+                        Véhicule et propriétaire
+                    </h6>
+                    <div class="card border-primary">
+                        <div class="card-body">
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <strong>Plaque:</strong><br>
+                                    <span class="badge bg-primary fs-6">${amende.vehicle.plate}</span>
+                                </div>
+                                <div class="col-6">
+                                    <strong>Statut véhicule:</strong><br>
+                                    ${amende.vehicle.is_stolen ? 
+                                        '<span class="badge bg-danger"><i class="fas fa-exclamation-triangle me-1"></i>VOLÉ</span>' : 
+                                        '<span class="badge bg-success">Normal</span>'
+                                    }
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-6">
+                                    <strong>Marque:</strong> ${amende.vehicle.brand}<br>
+                                    <strong>Modèle:</strong> ${amende.vehicle.model}
+                                </div>
+                                <div class="col-6">
+                                    <strong>Couleur:</strong> ${amende.vehicle.color}<br>
+                                    <strong>Année:</strong> ${amende.vehicle.year || 'N/A'}
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="d-flex align-items-center mb-2">
+                                <div class="bg-success rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                    <i class="fas fa-user text-white"></i>
+                                </div>
+                                <div>
+                                    <strong>${amende.vehicle.owner.first_name} ${amende.vehicle.owner.last_name}</strong><br>
+                                    <small class="text-muted">@${amende.vehicle.owner.username}</small>
+                                </div>
+                            </div>
+                            <div>
+                                <i class="fas fa-envelope me-2 text-muted"></i>
+                                <span>${amende.vehicle.owner.email}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Informations de l'infraction -->
+            <hr>
+            <div class="row">
+                <div class="col-md-8">
+                    <h6 class="text-danger mb-3">
+                        <i class="fas fa-gavel me-2"></i>
+                        Détails de l'infraction
+                    </h6>
+                    <div class="card border-danger">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-4">
+                                    <strong>Code article:</strong><br>
+                                    <span class="badge bg-danger">${amende.infraction.code_article}</span>
+                                </div>
+                                <div class="col-4">
+                                    <strong>Catégorie:</strong><br>
+                                    <span class="badge bg-secondary">${amende.infraction.category}</span>
+                                </div>
+                                <div class="col-4">
+                                    <strong>Montant de base:</strong><br>
+                                    <span class="text-danger fw-bold">${amende.infraction.montant_base.toLocaleString()} Z</span>
+                                </div>
+                            </div>
+                            <hr>
+                            <div>
+                                <strong>Description:</strong><br>
+                                <p class="mb-0">${amende.infraction.description}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="text-info mb-3">
+                        <i class="fas fa-user-shield me-2"></i>
+                        Agent verbalisateur
+                    </h6>
+                    <div class="card border-info">
+                        <div class="card-body text-center">
+                            <div class="bg-info rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 50px; height: 50px;">
+                                <i class="fas fa-user-shield text-white"></i>
+                            </div>
+                            <h6>${amende.agent.full_name}</h6>
+                            <small class="text-muted">@${amende.agent.username}</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions de modification du statut -->
+            <hr>
+            <div class="card bg-light">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>
+                        Modifier le statut de l'amende
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <form id="updateStatusForm" data-amende-id="${amende.id}">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <label for="newStatus" class="form-label">Nouveau statut:</label>
+                                <select class="form-select" id="newStatus" name="statut" required>
+                                    <option value="EMISE" ${amende.statut === 'EMISE' ? 'selected' : ''}>Émise</option>
+                                    <option value="PAYEE" ${amende.statut === 'PAYEE' ? 'selected' : ''}>Payée</option>
+                                    <option value="CONTESTEE" ${amende.statut === 'CONTESTEE' ? 'selected' : ''}>Contestée</option>
+                                    <option value="ANNULEE" ${amende.statut === 'ANNULEE' ? 'selected' : ''}>Annulée</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="observations" class="form-label">Observations (optionnel):</label>
+                                <textarea class="form-control" id="observations" name="observations" rows="2" placeholder="Ajouter une note..."></textarea>
+                            </div>
+                            <div class="col-md-2 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-save me-1"></i>
+                                    Mettre à jour
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        `;
+
+        // Afficher les résultats
+        amendeSearchResultsContent.innerHTML = html;
+        showAmendeSearchResults();
+
+        // Attacher le gestionnaire d'événement pour la mise à jour du statut
+        const updateForm = document.getElementById('updateStatusForm');
+        if (updateForm) {
+            updateForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                updateAmendeStatus(this);
+            });
+        }
+    }
+
+    /**
      * Affiche le loader de recherche
      */
     function showLoader() {
@@ -336,6 +608,146 @@ document.addEventListener('DOMContentLoaded', function() {
         card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
         observer.observe(card);
     });
+
+    // Fonctions utilitaires pour les amendes
+    
+    /**
+     * Affiche le loader de recherche d'amende
+     */
+    function showAmendeLoader() {
+        if (amendeSearchLoader) {
+            amendeSearchLoader.style.display = 'block';
+        }
+    }
+
+    /**
+     * Cache le loader de recherche d'amende
+     */
+    function hideAmendeLoader() {
+        if (amendeSearchLoader) {
+            amendeSearchLoader.style.display = 'none';
+        }
+    }
+
+    /**
+     * Affiche la section des résultats d'amende
+     */
+    function showAmendeSearchResults() {
+        if (amendeSearchResults) {
+            amendeSearchResults.style.display = 'block';
+            amendeSearchResults.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    /**
+     * Cache la section des résultats d'amende
+     */
+    function hideAmendeSearchResults() {
+        if (amendeSearchResults) {
+            amendeSearchResults.style.display = 'none';
+        }
+    }
+
+    /**
+     * Met à jour le statut d'une amende
+     */
+    function updateAmendeStatus(form) {
+        const amendeId = form.dataset.amendeId;
+        const formData = new FormData(form);
+        formData.append('amende_id', amendeId);
+
+        // Désactiver le bouton pendant la requête
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Mise à jour...';
+
+        fetch('/accounts/update-amende-status/', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCsrfToken(),
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                
+                // Mettre à jour l'affichage du statut dans la page
+                updateStatusDisplay(data.amende);
+                
+                // Vider le champ observations
+                form.querySelector('textarea[name="observations"]').value = '';
+            } else {
+                showAlert(data.message || 'Erreur lors de la mise à jour', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors de la mise à jour:', error);
+            showAlert('Erreur de connexion lors de la mise à jour', 'danger');
+        })
+        .finally(() => {
+            // Réactiver le bouton
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        });
+    }
+
+    /**
+     * Met à jour l'affichage du statut dans l'interface
+     */
+    function updateStatusDisplay(amendeData) {
+        // Mettre à jour le badge de statut
+        const statusBadge = document.querySelector('.badge');
+        if (statusBadge && statusBadge.textContent.includes('Émise') || 
+            statusBadge.textContent.includes('Payée') || 
+            statusBadge.textContent.includes('Contestée') || 
+            statusBadge.textContent.includes('Annulée')) {
+            
+            statusBadge.className = `badge ${getStatutBadgeClass(amendeData.statut)}`;
+            statusBadge.textContent = amendeData.statut_display;
+        }
+
+        // Mettre à jour la date de paiement si applicable
+        if (amendeData.date_paiement) {
+            const paymentDateElements = document.querySelectorAll('small');
+            paymentDateElements.forEach(element => {
+                if (element.textContent === 'Non payée') {
+                    element.textContent = amendeData.date_paiement;
+                }
+            });
+        }
+
+        // Mettre à jour les observations si présentes
+        if (amendeData.observations) {
+            const observationsDiv = document.querySelector('.bg-light.p-2.rounded small');
+            if (observationsDiv) {
+                observationsDiv.innerHTML = amendeData.observations.replace(/\n/g, '<br>');
+            }
+        }
+    }
+
+    /**
+     * Obtient le token CSRF
+     */
+    function getCsrfToken() {
+        const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (csrfToken) {
+            return csrfToken.value;
+        }
+        
+        // Fallback: chercher dans les cookies
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            const [name, value] = cookie.trim().split('=');
+            if (name === 'csrftoken') {
+                return value;
+            }
+        }
+        return '';
+    }
 });
 
 // Fonction utilitaire pour formater les numéros de plaque
@@ -351,4 +763,15 @@ function formatPlateNumber(input) {
     }
     
     return value;
+}
+
+// Fonction utilitaire pour obtenir la classe CSS du badge de statut
+function getStatutBadgeClass(statut) {
+    const classes = {
+        'EMISE': 'bg-warning text-dark',
+        'PAYEE': 'bg-success',
+        'CONTESTEE': 'bg-info',
+        'ANNULEE': 'bg-secondary'
+    };
+    return classes[statut] || 'bg-secondary';
 }

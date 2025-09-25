@@ -78,6 +78,32 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Recherche d'amendes -->
+                <div class="card shadow-sm mt-4">
+                    <div class="card-header bg-warning text-dark">
+                        <h6 class="mb-0">
+                            <i class="fas fa-file-invoice-dollar me-2"></i>
+                            Recherche d'amende
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <form id="amendeSearchForm">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="amendeSearch" placeholder="Ex: AM20241225123456" maxlength="30">
+                                <button class="btn btn-warning" type="submit">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                        </form>
+                        <div id="amendeSearchLoader" class="text-center mt-3" style="display: none;">
+                            <div class="spinner-border spinner-border-sm text-warning" role="status">
+                                <span class="visually-hidden">Recherche...</span>
+                            </div>
+                            <small class="d-block mt-1">Recherche d'amende...</small>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Contenu principal -->
@@ -92,16 +118,31 @@
                     {% endfor %}
                 {% endif %}
 
-                <!-- Résultats de recherche -->
+                <!-- Résultats de recherche de plaque -->
                 <div id="searchResults" style="display: none;">
                     <div class="card shadow-sm mb-4">
                         <div class="card-header bg-info text-white">
                             <h5 class="mb-0">
                                 <i class="fas fa-car me-2"></i>
-                                Résultats de recherche
+                                Résultats de recherche de plaque
                             </h5>
                         </div>
                         <div class="card-body" id="searchResultsContent">
+                            <!-- Contenu dynamique -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Résultats de recherche d'amende -->
+                <div id="amendeSearchResults" style="display: none;">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0">
+                                <i class="fas fa-file-invoice-dollar me-2"></i>
+                                Détails de l'amende
+                            </h5>
+                        </div>
+                        <div class="card-body" id="amendeSearchResultsContent">
                             <!-- Contenu dynamique -->
                         </div>
                     </div>

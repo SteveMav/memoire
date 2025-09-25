@@ -4,14 +4,38 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils import timezone
 from django.contrib import messages
+from django.db.models import Count, Sum, Q
 import json
 from .models import Vehicle
+from detection.models import Amende
 
 @login_required
 def vehicle_list(request):
     """Page de gestion des véhicules de l'utilisateur"""
-    vehicles = Vehicle.objects.filter(owner=request.user)
-    return render(request, 'vehicules/vehicle_list.html', {'vehicles': vehicles})
+    vehicles = Vehicle.objects.filter(owner=request.user).annotate(
+        total_amendes=Count('amende'),
+        montant_total_amendes=Sum('amende__montant'),
+        amendes_non_payees=Count('amende', filter=Q(amende__statut__in=['EMISE', 'CONTESTEE']))
+    )
+    
+    # Statistiques globales des amendes
+    total_amendes = Amende.objects.filter(vehicle__owner=request.user).count()
+    montant_total = Amende.objects.filter(vehicle__owner=request.user).aggregate(
+        total=Sum('montant')
+    )['total'] or 0
+    amendes_non_payees = Amende.objects.filter(
+        vehicle__owner=request.user,
+        statut__in=['EMISE', 'CONTESTEE']
+    ).count()
+    
+    context = {
+        'vehicles': vehicles,
+        'total_amendes': total_amendes,
+        'montant_total_amendes': montant_total,
+        'amendes_non_payees': amendes_non_payees,
+    }
+    
+    return render(request, 'vehicules/vehicle_list.html', context)
 
 @login_required
 @csrf_exempt

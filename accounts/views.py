@@ -10,7 +10,7 @@ from django.urls import reverse
 from .forms import LoginForm, RegisterForm, PasswordResetRequestForm, PasswordResetCodeForm, NewPasswordForm
 from .models import PasswordResetCode
 from .email_utils import send_password_reset_email, send_password_changed_notification
-from detection.models import Detection
+from detection.models import Detection, Amende, Infraction
 from vehicules.models import Vehicle
 
 def login_view(request):
@@ -362,3 +362,164 @@ def resend_reset_code(request):
             })
     
     return JsonResponse({'success': False, 'message': 'Méthode non autorisée'})
+
+
+@login_required
+def search_amende(request):
+    """Vue AJAX pour rechercher une amende par numéro"""
+    if not request.user.profile.is_agent and not request.user.is_staff:
+        return JsonResponse({
+            'success': False,
+            'message': 'Accès non autorisé'
+        })
+    
+    numero_amende = request.GET.get('numero', '').strip()
+    
+    if not numero_amende:
+        return JsonResponse({
+            'success': False,
+            'message': 'Numéro d\'amende requis'
+        })
+    
+    try:
+        # Rechercher l'amende
+        amende = Amende.objects.select_related(
+            'vehicle', 'vehicle__owner', 'infraction', 'agent'
+        ).get(numero_amende__iexact=numero_amende)
+        
+        # Préparer les données de réponse
+        amende_data = {
+            'id': amende.id,
+            'numero_amende': amende.numero_amende,
+            'montant': float(amende.montant),
+            'statut': amende.statut,
+            'statut_display': amende.get_statut_display(),
+            'date_emission': amende.date_emission.strftime('%d/%m/%Y à %H:%M'),
+            'date_limite_paiement': amende.date_limite_paiement.strftime('%d/%m/%Y'),
+            'date_paiement': amende.date_paiement.strftime('%d/%m/%Y à %H:%M') if amende.date_paiement else None,
+            'lieu_infraction': amende.lieu_infraction,
+            'observations': amende.observations,
+            'email_envoye': amende.email_envoye,
+            'infraction': {
+                'id': amende.infraction.id,
+                'code_article': amende.infraction.code_article,
+                'description': amende.infraction.description,
+                'category': amende.infraction.get_category_display(),
+                'montant_base': float(amende.infraction.get_amende()),
+            },
+            'vehicle': {
+                'id': amende.vehicle.id,
+                'plate': amende.vehicle.plate,
+                'brand': amende.vehicle.brand,
+                'model': amende.vehicle.model,
+                'color': amende.vehicle.color,
+                'year': amende.vehicle.year,
+                'is_stolen': amende.vehicle.is_stolen,
+                'owner': {
+                    'id': amende.vehicle.owner.id,
+                    'username': amende.vehicle.owner.username,
+                    'first_name': amende.vehicle.owner.first_name,
+                    'last_name': amende.vehicle.owner.last_name,
+                    'email': amende.vehicle.owner.email,
+                }
+            },
+            'agent': {
+                'id': amende.agent.id if amende.agent else None,
+                'username': amende.agent.username if amende.agent else 'Système',
+                'full_name': amende.agent.get_full_name() if amende.agent else 'Système automatique',
+            }
+        }
+        
+        return JsonResponse({
+            'success': True,
+            'amende': amende_data
+        })
+        
+    except Amende.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': f'Aucune amende trouvée avec le numéro: {numero_amende}'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors de la recherche: {str(e)}'
+        })
+
+
+@login_required
+def update_amende_status(request):
+    """Vue AJAX pour mettre à jour le statut d'une amende"""
+    if not request.user.profile.is_agent and not request.user.is_staff:
+        return JsonResponse({
+            'success': False,
+            'message': 'Accès non autorisé'
+        })
+    
+    if request.method != 'POST':
+        return JsonResponse({
+            'success': False,
+            'message': 'Méthode non autorisée'
+        })
+    
+    try:
+        amende_id = request.POST.get('amende_id')
+        nouveau_statut = request.POST.get('statut')
+        observations = request.POST.get('observations', '')
+        
+        if not amende_id or not nouveau_statut:
+            return JsonResponse({
+                'success': False,
+                'message': 'ID de l\'amende et nouveau statut requis'
+            })
+        
+        # Vérifier que le statut est valide
+        statuts_valides = ['EMISE', 'PAYEE', 'CONTESTEE', 'ANNULEE']
+        if nouveau_statut not in statuts_valides:
+            return JsonResponse({
+                'success': False,
+                'message': 'Statut invalide'
+            })
+        
+        # Récupérer et mettre à jour l'amende
+        amende = Amende.objects.get(id=amende_id)
+        ancien_statut = amende.statut
+        
+        amende.statut = nouveau_statut
+        
+        # Mettre à jour les observations si fournies
+        if observations.strip():
+            if amende.observations:
+                amende.observations += f"\n[{request.user.username} - {amende.date_emission.strftime('%d/%m/%Y %H:%M')}]: {observations}"
+            else:
+                amende.observations = f"[{request.user.username} - {amende.date_emission.strftime('%d/%m/%Y %H:%M')}]: {observations}"
+        
+        # Si l'amende est marquée comme payée, enregistrer la date de paiement
+        if nouveau_statut == 'PAYEE' and ancien_statut != 'PAYEE':
+            from django.utils import timezone
+            amende.date_paiement = timezone.now()
+        
+        amende.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Statut de l\'amende mis à jour: {ancien_statut} → {amende.get_statut_display()}',
+            'amende': {
+                'id': amende.id,
+                'statut': amende.statut,
+                'statut_display': amende.get_statut_display(),
+                'date_paiement': amende.date_paiement.strftime('%d/%m/%Y à %H:%M') if amende.date_paiement else None,
+                'observations': amende.observations,
+            }
+        })
+        
+    except Amende.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'message': 'Amende introuvable'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors de la mise à jour: {str(e)}'
+        })

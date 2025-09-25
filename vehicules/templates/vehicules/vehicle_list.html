@@ -47,7 +47,7 @@
         <!-- Vehicle Statistics -->
         {% if vehicles %}
         <div class="row mb-4">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card bg-light border-0">
                     <div class="card-body text-center">
                         <i class="fas fa-car fa-2x text-primary mb-2" style="color: #2c3e50 !important;"></i>
@@ -56,7 +56,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card bg-light border-0">
                     <div class="card-body text-center">
                         <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
@@ -67,7 +67,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="card bg-light border-0">
                     <div class="card-body text-center">
                         <i class="fas fa-exclamation-triangle fa-2x text-danger mb-2"></i>
@@ -78,7 +78,40 @@
                     </div>
                 </div>
             </div>
+            <div class="col-md-3">
+                <div class="card bg-light border-0">
+                    <div class="card-body text-center">
+                        <i class="fas fa-file-invoice-dollar fa-2x text-warning mb-2"></i>
+                        <h5 class="card-title">{{ total_amendes }}</h5>
+                        <p class="card-text text-muted">Amende{{ total_amendes|pluralize }} total{{ total_amendes|pluralize }}</p>
+                    </div>
+                </div>
+            </div>
         </div>
+        
+        <!-- Amendes Statistics -->
+        {% if total_amendes > 0 %}
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card border-warning">
+                    <div class="card-body text-center">
+                        <i class="fas fa-money-bill-wave fa-2x text-warning mb-2"></i>
+                        <h5 class="card-title">{{ montant_total_amendes|floatformat:0 }} Z</h5>
+                        <p class="card-text text-muted">Montant total des amendes</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-danger">
+                    <div class="card-body text-center">
+                        <i class="fas fa-exclamation-circle fa-2x text-danger mb-2"></i>
+                        <h5 class="card-title">{{ amendes_non_payees }}</h5>
+                        <p class="card-text text-muted">Amende{{ amendes_non_payees|pluralize }} non payée{{ amendes_non_payees|pluralize }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
         {% endif %}
 
         <!-- Vehicle Cards Container -->
@@ -109,6 +142,12 @@
                                     <i class="fas fa-cog"></i>
                                 </button>
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenuButton{{ vehicle.id }}">
+                                    <li>
+                                        <button class="dropdown-item view-amendes-btn" data-vehicle-id="{{ vehicle.id }}">
+                                            <i class="fas fa-file-invoice-dollar text-warning me-2"></i>Voir les amendes
+                                        </button>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
                                     <li>
                                         <button class="dropdown-item toggle-stolen-btn" data-vehicle-id="{{ vehicle.id }}" data-current-status="{{ vehicle.is_stolen|yesno:'true,false' }}">
                                             {% if vehicle.is_stolen %}
@@ -155,7 +194,7 @@
                     </div>
                     
                     <div class="card-footer bg-light text-muted">
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
                             <small>
                                 <i class="fas fa-plus-circle me-1"></i>
                                 {{ vehicle.created_at|date:"d/m/Y" }}
@@ -172,6 +211,28 @@
                                 {% endif %}
                             </small>
                         </div>
+                        
+                        <!-- Informations des amendes -->
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small>
+                                <i class="fas fa-file-invoice-dollar me-1 text-warning"></i>
+                                <span class="fw-semibold">{{ vehicle.total_amendes|default:0 }}</span> amende{{ vehicle.total_amendes|default:0|pluralize }}
+                            </small>
+                            {% if vehicle.montant_total_amendes %}
+                            <small class="text-warning fw-semibold">
+                                {{ vehicle.montant_total_amendes|floatformat:0 }} Z
+                            </small>
+                            {% endif %}
+                        </div>
+                        
+                        {% if vehicle.amendes_non_payees > 0 %}
+                        <div class="mt-1">
+                            <small class="text-danger">
+                                <i class="fas fa-exclamation-circle me-1"></i>
+                                {{ vehicle.amendes_non_payees }} non payée{{ vehicle.amendes_non_payees|pluralize }}
+                            </small>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -303,6 +364,56 @@
         </div>
     </div>
 
+    <!-- Amendes Modal -->
+    <div class="modal fade" id="amendesModal" tabindex="-1" aria-labelledby="amendesModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: #2c3e50; color: white;">
+                    <h5 class="modal-title" id="amendesModalLabel">
+                        <i class="fas fa-file-invoice-dollar me-2"></i>Amendes du véhicule
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="amendesLoadingSpinner" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Chargement...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Chargement des amendes...</p>
+                    </div>
+                    
+                    <div id="amendesContent" style="display: none;">
+                        <div class="row mb-3">
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i>
+                                    <strong>Véhicule :</strong> <span id="vehicleInfo"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div id="amendesTableContainer">
+                            <!-- Table will be populated by JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <div id="noAmendesMessage" style="display: none;">
+                        <div class="text-center py-5">
+                            <i class="fas fa-file-invoice-dollar fa-5x text-muted opacity-50 mb-3"></i>
+                            <h4 class="text-muted">Aucune amende</h4>
+                            <p class="text-muted">Ce véhicule n'a aucune amende enregistrée.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Fermer
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Include Footer -->
     {% include 'footer.html' %}
 
@@ -357,5 +468,6 @@
     </script>
     
     <script src="{% static 'js/vehicles.js' %}"></script>
+    <script src="{% static 'js/vehicle-amendes.js' %}"></script>
 </body>
 </html>

@@ -9,6 +9,8 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('agent-space/', views.agent_space, name='agent_space'),
     path('search-plate/', views.search_plate, name='search_plate'),
+    path('search-amende/', views.search_amende, name='search_amende'),
+    path('update-amende-status/', views.update_amende_status, name='update_amende_status'),
     
     # URLs pour la récupération de mot de passe
     path('password-reset/', views.password_reset_request, name='password_reset_request'),
