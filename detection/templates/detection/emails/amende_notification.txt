@@ -1,0 +1,61 @@
+AMENDE DE CIRCULATION
+République Démocratique du Congo
+
+Bonjour {{ owner.first_name }} {{ owner.last_name }},
+
+Nous vous informons qu'une amende de circulation a été émise pour votre véhicule.
+
+INFORMATIONS DE L'AMENDE
+========================
+Numéro d'amende : {{ amende.numero_amende }}
+Date d'émission : {{ amende.date_emission|date:"d/m/Y à H:i" }}
+Agent verbalisateur : {{ agent.first_name }} {{ agent.last_name }}
+Lieu de l'infraction : {{ amende.lieu_infraction|default:"Non spécifié" }}
+
+VÉHICULE CONCERNÉ
+=================
+Plaque d'immatriculation : {{ vehicle.plate_number }}
+Marque : {{ vehicle.brand }}
+Modèle : {{ vehicle.model }}
+Année : {{ vehicle.year|default:"Non spécifiée" }}
+
+INFRACTION COMMISE
+==================
+Code de l'article : {{ infraction.code_article }}
+Catégorie : {{ infraction.get_category_display }}
+Description : {{ infraction.description }}
+
+MONTANT À PAYER : {{ amende.montant }} Z
+
+IMPORTANT - Date limite de paiement
+====================================
+Vous devez régler cette amende avant le {{ amende.date_limite_paiement|date:"d/m/Y" }}
+Passé cette date, des pénalités de retard pourront s'appliquer.
+
+{% if amende.observations %}
+OBSERVATIONS
+============
+{{ amende.observations }}
+{% endif %}
+
+MODALITÉS DE PAIEMENT
+======================
+Pour régler cette amende, vous pouvez :
+- Vous présenter au commissariat le plus proche
+- Effectuer un virement bancaire (coordonnées disponibles au commissariat)
+- Utiliser les services de paiement mobile disponibles
+
+Référence à mentionner : {{ amende.numero_amende }}
+
+CONTESTATION
+============
+Si vous souhaitez contester cette amende, vous disposez d'un délai de 15 jours 
+à compter de la réception de cette notification pour déposer un recours auprès 
+du tribunal compétent.
+
+Cette notification a été générée automatiquement par le système de gestion 
+des infractions routières.
+
+Pour toute question, veuillez contacter les services de police de la circulation.
+
+© {{ amende.date_emission.year }} - République Démocratique du Congo

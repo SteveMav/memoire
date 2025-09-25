@@ -141,6 +141,7 @@ def save_corrected_plates(request):
                         'detection_id': detection.id,
                         'email_sent': email_sent,
                         'vehicle': {
+                            'id': vehicle.id,  # Ajout de l'ID manquant !
                             'plate': vehicle.plate,
                             'brand': vehicle.brand,
                             'model': vehicle.model,
@@ -396,4 +397,171 @@ def test_email_system(request):
             return JsonResponse({'error': str(e)}, status=500)
     
     return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+
+
+@login_required
+@permission_required('detection.add_detection', raise_exception=True)
+def get_infractions(request):
+    """Récupère la liste des infractions disponibles pour émission d'amende"""
+    if request.method == 'GET':
+        try:
+            from .models import Infraction
+            
+            infractions = Infraction.objects.all().values(
+                'id', 'code_article', 'category', 'description', 
+                'amount_min', 'amount_max'
+            )
+            
+            infractions_list = []
+            for infraction in infractions:
+                # Calculer l'amende moyenne
+                amount_min = float(infraction['amount_min'] or 0)
+                amount_max = float(infraction['amount_max'] or 0)
+                
+                if amount_min and amount_max:
+                    amende_moyenne = (amount_min + amount_max) / 2
+                else:
+                    amende_moyenne = amount_min or amount_max or 0
+                
+                infractions_list.append({
+                    'id': infraction['id'],
+                    'code_article': infraction['code_article'],
+                    'category': infraction['category'],
+                    'description': infraction['description'],
+                    'amount_min': amount_min,
+                    'amount_max': amount_max,
+                    'amende_moyenne': amende_moyenne
+                })
+            
+            return JsonResponse({
+                'success': True,
+                'infractions': infractions_list
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération des infractions: {str(e)}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+
+
+@login_required
+@permission_required('detection.add_detection', raise_exception=True)
+def emettre_amende(request):
+    """Émet une amende pour un véhicule détecté"""
+    if request.method == 'POST':
+        try:
+            import json
+            from datetime import datetime, timedelta
+            from .models import Infraction, Amende, Detection
+            from vehicules.models import Vehicle  # Import manquant !
+            
+            data = json.loads(request.body)
+            
+            # Récupérer les données
+            vehicle_id = data.get('vehicle_id')
+            infraction_id = data.get('infraction_id')
+            lieu_infraction = data.get('lieu_infraction', '')
+            observations = data.get('observations', '')
+            detection_id = data.get('detection_id')
+            
+            # Validation
+            if not all([vehicle_id, infraction_id]):
+                return JsonResponse({
+                    'error': 'Véhicule et infraction requis'
+                }, status=400)
+            
+            # Récupérer les objets
+            try:
+                vehicle = Vehicle.objects.get(id=vehicle_id)
+                infraction = Infraction.objects.get(id=infraction_id)
+                detection = None
+                if detection_id:
+                    detection = Detection.objects.get(id=detection_id)
+            except (Vehicle.DoesNotExist, Infraction.DoesNotExist, Detection.DoesNotExist) as e:
+                return JsonResponse({'error': 'Objet non trouvé'}, status=404)
+            
+            # Vérifier que l'infraction a une amende
+            if not infraction.has_amende():
+                return JsonResponse({
+                    'error': 'Cette infraction n\'a pas d\'amende définie'
+                }, status=400)
+            
+            # Créer l'amende
+            amende = Amende.objects.create(
+                detection=detection,
+                infraction=infraction,
+                vehicle=vehicle,
+                agent=request.user,
+                lieu_infraction=lieu_infraction,
+                observations=observations,
+                date_limite_paiement=datetime.now().date() + timedelta(days=30)
+            )
+            
+            # Envoyer l'email au propriétaire
+            try:
+                email_sent = send_amende_email(amende)
+                if email_sent:
+                    amende.email_envoye = True
+                    amende.save()
+            except Exception as e:
+                logger.error(f"Erreur envoi email amende: {str(e)}")
+                # On continue même si l'email échoue
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Amende {amende.numero_amende} émise avec succès',
+                'amende': {
+                    'numero': amende.numero_amende,
+                    'montant': float(amende.montant),
+                    'infraction': infraction.description,
+                    'date_emission': amende.date_emission.strftime('%d/%m/%Y %H:%M'),
+                    'date_limite': amende.date_limite_paiement.strftime('%d/%m/%Y'),
+                    'email_envoye': amende.email_envoye
+                }
+            })
+            
+        except Exception as e:
+            logger.error(f"Erreur lors de l'émission d'amende: {str(e)}")
+            return JsonResponse({'error': str(e)}, status=500)
+    
+    return JsonResponse({'error': 'Méthode non autorisée'}, status=405)
+
+
+def send_amende_email(amende):
+    """Envoie un email de notification d'amende au propriétaire du véhicule"""
+    try:
+        from django.core.mail import send_mail
+        from django.template.loader import render_to_string
+        from django.utils.html import strip_tags
+        
+        # Préparer le contexte pour le template
+        context = {
+            'amende': amende,
+            'vehicle': amende.vehicle,
+            'owner': amende.vehicle.owner,
+            'infraction': amende.infraction,
+            'agent': amende.agent
+        }
+        
+        # Générer le contenu HTML et texte
+        html_message = render_to_string('detection/emails/amende_notification.html', context)
+        plain_message = render_to_string('detection/emails/amende_notification.txt', context)
+        
+        # Envoyer l'email
+        send_mail(
+            subject=f'Amende de circulation - {amende.numero_amende}',
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[amende.vehicle.owner.email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        
+        logger.info(f"Email d'amende envoyé avec succès pour {amende.numero_amende}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Erreur lors de l'envoi de l'email d'amende: {str(e)}")
+        return False
 

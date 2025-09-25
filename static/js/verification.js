@@ -238,6 +238,22 @@ function displayVehicleVerificationResults(matches) {
                         <tr><td><strong>Username:</strong></td><td>${match.owner.username || '—'}</td></tr>
                         <tr><td><strong>Email:</strong></td><td>${match.owner.email || '—'}</td></tr>
                       </table>
+                      <div class="d-flex justify-content-end mt-3">
+                        <button class="btn btn-danger btn-sm btn-amende" onclick="showAmendeModal({
+                          id: ${match.vehicle.id},
+                          plate_number: '${match.vehicle.plate}',
+                          brand: '${match.vehicle.brand}',
+                          model: '${match.vehicle.model}',
+                          year: ${match.vehicle.year || 'null'},
+                          owner: {
+                            first_name: '${match.owner.first_name}',
+                            last_name: '${match.owner.last_name}',
+                            email: '${match.owner.email}'
+                          }
+                        })">
+                          <i class="fas fa-gavel me-1"></i>Émettre Amende
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ` : `
@@ -354,6 +370,399 @@ window.testDirectVerify = function() {
     });
 };
 
-// Force le rechargement du cache - Version avec support détection manuelle
+// ===== SYSTÈME D'ÉMISSION D'AMENDES =====
+
+// Variables globales pour l'émission d'amendes
+let currentVehicleForAmende = null;
+let infractions = [];
+
+// Fonction utilitaire pour récupérer le token CSRF
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
+           document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
+           '';
+}
+
+// Fonction pour charger les infractions disponibles
+async function loadInfractions() {
+    try {
+        console.log('🔄 Chargement des infractions...');
+        const response = await fetch('/detection/get-infractions/', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCsrfToken()
+            }
+        });
+
+        console.log('📡 Réponse reçue:', response.status, response.statusText);
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error('❌ Erreur HTTP:', response.status, errorText);
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json();
+        console.log('📦 Données reçues:', data);
+        
+        if (data.success) {
+            infractions = data.infractions;
+            console.log('✅ Infractions chargées:', infractions.length);
+            if (infractions.length > 0) {
+                console.log('📋 Première infraction:', infractions[0]);
+            }
+            return true;
+        } else {
+            throw new Error(data.error || 'Erreur lors du chargement des infractions');
+        }
+    } catch (error) {
+        console.error('Erreur chargement infractions:', error);
+        if (window.showError) {
+            window.showError('Erreur lors du chargement des infractions: ' + error.message);
+        } else {
+            alert('Erreur lors du chargement des infractions: ' + error.message);
+        }
+        return false;
+    }
+}
+
+// Fonction pour afficher le modal d'émission d'amende
+function showAmendeModal(vehicle) {
+    currentVehicleForAmende = vehicle;
+    
+    // Créer le modal s'il n'existe pas
+    let modal = document.getElementById('amendeModal');
+    if (!modal) {
+        createAmendeModal();
+        modal = document.getElementById('amendeModal');
+    }
+    
+    // Remplir les informations du véhicule
+    document.getElementById('amendeVehiclePlate').textContent = vehicle.plate_number;
+    document.getElementById('amendeVehicleInfo').textContent = 
+        `${vehicle.brand} ${vehicle.model} (${vehicle.year || 'N/A'})`;
+    document.getElementById('amendeOwnerInfo').textContent = 
+        `${vehicle.owner.first_name} ${vehicle.owner.last_name} - ${vehicle.owner.email}`;
+    
+    // Charger les infractions dans le select
+    populateInfractionsSelect();
+    
+    // Afficher le modal
+    const bootstrapModal = new bootstrap.Modal(modal);
+    bootstrapModal.show();
+}
+
+// Fonction pour créer le modal d'émission d'amende
+function createAmendeModal() {
+    const modalHtml = `
+    <div class="modal fade" id="amendeModal" tabindex="-1" aria-labelledby="amendeModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="amendeModalLabel">
+                        <i class="fas fa-gavel me-2"></i>Émission d'Amende
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Informations du véhicule -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-primary text-white">
+                            <h6 class="mb-0"><i class="fas fa-car me-2"></i>Véhicule concerné</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-4">
+                                    <strong>Plaque:</strong><br>
+                                    <span id="amendeVehiclePlate" class="badge bg-dark fs-6"></span>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Véhicule:</strong><br>
+                                    <span id="amendeVehicleInfo"></span>
+                                </div>
+                                <div class="col-md-4">
+                                    <strong>Propriétaire:</strong><br>
+                                    <span id="amendeOwnerInfo"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Formulaire d'amende -->
+                    <form id="amendeForm">
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="infractionSelect" class="form-label">
+                                        <i class="fas fa-exclamation-triangle text-warning me-1"></i>
+                                        Infraction commise *
+                                    </label>
+                                    <select class="form-select" id="infractionSelect" required>
+                                        <option value="">Sélectionner une infraction...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="amendeAmount" class="form-label">
+                                        <i class="fas fa-money-bill text-success me-1"></i>
+                                        Montant de l'amende 
+                                    </label>
+                                    <input type="number" class="form-control" id="amendeAmount" readonly>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="lieuInfraction" class="form-label">
+                                <i class="fas fa-map-marker-alt text-info me-1"></i>
+                                Lieu de l'infraction *
+                            </label>
+                            <input type="text" class="form-control" id="lieuInfraction" 
+                                   placeholder="Ex: Avenue Kasa-Vubu, Kinshasa" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="observations" class="form-label">
+                                <i class="fas fa-sticky-note text-secondary me-1"></i>
+                                Observations (optionnel)
+                            </label>
+                            <textarea class="form-control" id="observations" rows="3" 
+                                      placeholder="Détails supplémentaires sur l'infraction..."></textarea>
+                        </div>
+
+                        <!-- Détails de l'infraction sélectionnée -->
+                        <div id="infractionDetails" class="card bg-light" style="display: none;">
+                            <div class="card-body">
+                                <h6 class="card-title">Détails de l'infraction</h6>
+                                <div id="infractionDescription"></div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Annuler
+                    </button>
+                    <button type="button" class="btn btn-danger" id="emettrAmendeBtn">
+                        <i class="fas fa-gavel me-1"></i>Émettre l'Amende
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    
+    // Ajouter les event listeners
+    document.getElementById('infractionSelect').addEventListener('change', onInfractionChange);
+    document.getElementById('emettrAmendeBtn').addEventListener('click', emettrAmende);
+}
+
+// Fonction pour remplir le select des infractions
+function populateInfractionsSelect() {
+    const select = document.getElementById('infractionSelect');
+    select.innerHTML = '<option value="">Sélectionner une infraction...</option>';
+    
+    // Grouper par catégorie
+    const categories = {};
+    infractions.forEach(infraction => {
+        if (!categories[infraction.category]) {
+            categories[infraction.category] = [];
+        }
+        categories[infraction.category].push(infraction);
+    });
+    
+    // Ajouter les options groupées
+    Object.keys(categories).forEach(category => {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = getCategoryDisplayName(category);
+        
+        categories[category].forEach(infraction => {
+            const option = document.createElement('option');
+            option.value = infraction.id;
+            option.textContent = `${infraction.code_article} - ${infraction.description.substring(0, 80)}...`;
+            option.dataset.amende = infraction.amende_moyenne;
+            option.dataset.description = infraction.description;
+            option.dataset.category = infraction.category;
+            optgroup.appendChild(option);
+        });
+        
+        select.appendChild(optgroup);
+    });
+}
+
+// Fonction pour obtenir le nom d'affichage de la catégorie
+function getCategoryDisplayName(category) {
+    const categories = {
+        'CONDUITE': 'Conduite des véhicules et des animaux',
+        'USAGE_VOIE': 'Usage des voies ouvertes à la circulation',
+        'VEHICULE': 'Equipement des véhicules',
+        'ADMINISTRATIF': 'Conditions administratives et documents',
+        'PERMIS': 'Permis de conduire',
+        'GENERAL': 'Dispositions générales'
+    };
+    return categories[category] || category;
+}
+
+// Fonction appelée lors du changement d'infraction
+function onInfractionChange() {
+    const select = document.getElementById('infractionSelect');
+    const selectedOption = select.options[select.selectedIndex];
+    const amendeAmount = document.getElementById('amendeAmount');
+    const infractionDetails = document.getElementById('infractionDetails');
+    const infractionDescription = document.getElementById('infractionDescription');
+    
+    if (selectedOption.value) {
+        // Afficher le montant
+        amendeAmount.value = selectedOption.dataset.amende;
+        
+        // Afficher les détails
+        infractionDescription.innerHTML = `
+            <p><strong>Code:</strong> ${selectedOption.textContent.split(' - ')[0]}</p>
+            <p><strong>Catégorie:</strong> ${getCategoryDisplayName(selectedOption.dataset.category)}</p>
+            <p><strong>Description:</strong> ${selectedOption.dataset.description}</p>
+            <p><strong>Montant:</strong> ${selectedOption.dataset.amende} Z</p>
+        `;
+        infractionDetails.style.display = 'block';
+    } else {
+        amendeAmount.value = '';
+        infractionDetails.style.display = 'none';
+    }
+}
+
+// Fonction pour émettre l'amende
+async function emettrAmende() {
+    const form = document.getElementById('amendeForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const infractionId = document.getElementById('infractionSelect').value;
+    const lieuInfraction = document.getElementById('lieuInfraction').value;
+    const observations = document.getElementById('observations').value;
+    
+    if (!infractionId) {
+        if (window.showError) {
+            window.showError('Veuillez sélectionner une infraction');
+        } else {
+            alert('Veuillez sélectionner une infraction');
+        }
+        return;
+    }
+    
+    // Désactiver le bouton pendant le traitement
+    const btn = document.getElementById('emettrAmendeBtn');
+    const originalText = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Émission en cours...';
+    
+    try {
+        const requestData = {
+            vehicle_id: currentVehicleForAmende.id,
+            infraction_id: infractionId,
+            lieu_infraction: lieuInfraction,
+            observations: observations,
+            detection_id: currentVehicleForAmende.detection_id || null
+        };
+        
+        console.log('🚨 Données à envoyer pour l\'amende:', requestData);
+        console.log('🚗 Véhicule actuel:', currentVehicleForAmende);
+        console.log('🔑 Token CSRF:', getCsrfToken() ? 'Présent' : 'Manquant');
+        
+        const response = await fetch('/detection/emettre-amende/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+            // Fermer le modal
+            const modal = bootstrap.Modal.getInstance(document.getElementById('amendeModal'));
+            modal.hide();
+            
+            // Afficher le succès
+            const message = `Amende ${data.amende.numero} émise avec succès!\n` +
+                          `Montant: ${data.amende.montant} Z\n` +
+                          `Date limite: ${data.amende.date_limite}\n` +
+                          `Email envoyé: ${data.amende.email_envoye ? 'Oui' : 'Non'}`;
+            
+            if (window.showSuccess) {
+                window.showSuccess(message);
+            } else {
+                alert(message);
+            }
+            
+            console.log('Amende émise:', data.amende);
+        } else {
+            throw new Error(data.error || 'Erreur lors de l\'émission de l\'amende');
+        }
+        
+    } catch (error) {
+        console.error('Erreur émission amende:', error);
+        if (window.showError) {
+            window.showError('Erreur lors de l\'émission de l\'amende: ' + error.message);
+        } else {
+            alert('Erreur lors de l\'émission de l\'amende: ' + error.message);
+        }
+    } finally {
+        // Réactiver le bouton
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+}
+
+// Fonction pour ajouter le bouton d'amende aux résultats de vérification
+function addAmendeButtonToResult(vehicleElement, vehicle) {
+    // Vérifier si le bouton existe déjà
+    if (vehicleElement.querySelector('.btn-amende')) {
+        return;
+    }
+    
+    // Créer le bouton d'amende
+    const amendeBtn = document.createElement('button');
+    amendeBtn.className = 'btn btn-danger btn-sm btn-amende ms-2';
+    amendeBtn.innerHTML = '<i class="fas fa-gavel me-1"></i>Émettre Amende';
+    amendeBtn.onclick = () => showAmendeModal(vehicle);
+    
+    // Ajouter le bouton après les autres boutons
+    const buttonContainer = vehicleElement.querySelector('.d-flex') || vehicleElement;
+    buttonContainer.appendChild(amendeBtn);
+}
+
+// Fonction de test pour vérifier le chargement des infractions
+window.testInfractions = async function() {
+    console.log('=== TEST MANUEL DES INFRACTIONS ===');
+    await loadInfractions();
+    console.log('Infractions en mémoire:', infractions.length);
+    if (infractions.length > 0) {
+        console.log('Exemples d\'infractions:');
+        infractions.slice(0, 3).forEach((inf, i) => {
+            console.log(`${i+1}. ${inf.code_article} - ${inf.description.substring(0, 50)}... (${inf.amende_moyenne} Z)`);
+        });
+    }
+    console.log('=== FIN TEST INFRACTIONS ===');
+};
+
+// Initialiser le système d'amendes au chargement de la page
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('Initialisation du système d\'amendes...');
+    loadInfractions();
+});
+
+// Force le rechargement du cache - Version avec support détection manuelle + amendes
 console.log('Verification JS loaded at:', new Date().toISOString());
-console.log('🔄 Version: Support détection manuelle v2.0 - Cache busted!');
+console.log('🔄 Version: Support détection manuelle + amendes v3.0 - Cache busted!');

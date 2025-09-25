@@ -10,6 +10,8 @@ urlpatterns = [
     path('save-corrected-plates/', views.save_corrected_plates, name='save_corrected_plates'),
     path('extract-manual-plate/', views.extract_manual_plate, name='extract_manual_plate'),
     path('test-email/', views.test_email_system, name='test_email_system'),
+    path('get-infractions/', views.get_infractions, name='get_infractions'),
+    path('emettre-amende/', views.emettre_amende, name='emettre_amende'),
 ]
 
 # Ajouter le support pour les fichiers média en développement

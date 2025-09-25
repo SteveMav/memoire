@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notification d'Amende</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px 5px 0 0;
+        }
+        .content {
+            background-color: #f8f9fa;
+            padding: 30px;
+            border: 1px solid #dee2e6;
+        }
+        .amende-info {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #e74c3c;
+        }
+        .vehicle-info {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #3498db;
+        }
+        .infraction-info {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #f39c12;
+        }
+        .montant {
+            font-size: 24px;
+            font-weight: bold;
+            color: #e74c3c;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .footer {
+            background-color: #34495e;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 0 0 5px 5px;
+            font-size: 12px;
+        }
+        .important {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚨 AMENDE DE CIRCULATION</h1>
+        <p>République Démocratique du Congo</p>
+    </div>
+
+    <div class="content">
+        <p>Bonjour <strong>{{ owner.first_name }} {{ owner.last_name }}</strong>,</p>
+        
+        <p>Nous vous informons qu'une amende de circulation a été émise pour votre véhicule.</p>
+
+        <div class="amende-info">
+            <h3>📋 Informations de l'amende</h3>
+            <table>
+                <tr>
+                    <th>Numéro d'amende :</th>
+                    <td><strong>{{ amende.numero_amende }}</strong></td>
+                </tr>
+                <tr>
+                    <th>Date d'émission :</th>
+                    <td>{{ amende.date_emission|date:"d/m/Y à H:i" }}</td>
+                </tr>
+                <tr>
+                    <th>Agent verbalisateur :</th>
+                    <td>{{ agent.first_name }} {{ agent.last_name }}</td>
+                </tr>
+                <tr>
+                    <th>Lieu de l'infraction :</th>
+                    <td>{{ amende.lieu_infraction|default:"Non spécifié" }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="vehicle-info">
+            <h3>🚗 Véhicule concerné</h3>
+            <table>
+                <tr>
+                    <th>Plaque d'immatriculation :</th>
+                    <td><strong>{{ vehicle.plate_number }}</strong></td>
+                </tr>
+                <tr>
+                    <th>Marque :</th>
+                    <td>{{ vehicle.brand }}</td>
+                </tr>
+                <tr>
+                    <th>Modèle :</th>
+                    <td>{{ vehicle.model }}</td>
+                </tr>
+                <tr>
+                    <th>Année :</th>
+                    <td>{{ vehicle.year|default:"Non spécifiée" }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="infraction-info">
+            <h3>⚖️ Infraction commise</h3>
+            <table>
+                <tr>
+                    <th>Code de l'article :</th>
+                    <td><strong>{{ infraction.code_article }}</strong></td>
+                </tr>
+                <tr>
+                    <th>Catégorie :</th>
+                    <td>{{ infraction.get_category_display }}</td>
+                </tr>
+                <tr>
+                    <th>Description :</th>
+                    <td>{{ infraction.description }}</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="montant">
+            💰 MONTANT À PAYER : {{ amende.montant }} Z
+        </div>
+
+        <div class="important">
+            <h4>⏰ IMPORTANT - Date limite de paiement</h4>
+            <p><strong>Vous devez régler cette amende avant le {{ amende.date_limite_paiement|date:"d/m/Y" }}</strong></p>
+            <p>Passé cette date, des pénalités de retard pourront s'appliquer.</p>
+        </div>
+
+        {% if amende.observations %}
+        <div class="infraction-info">
+            <h3>📝 Observations</h3>
+            <p>{{ amende.observations }}</p>
+        </div>
+        {% endif %}
+
+        <div class="important">
+            <h4>💳 Modalités de paiement</h4>
+            <p>Pour régler cette amende, vous pouvez :</p>
+            <ul>
+                <li>Vous présenter au commissariat le plus proche</li>
+                <li>Effectuer un virement bancaire (coordonnées disponibles au commissariat)</li>
+                <li>Utiliser les services de paiement mobile disponibles</li>
+            </ul>
+            <p><strong>Référence à mentionner :</strong> {{ amende.numero_amende }}</p>
+        </div>
+
+        <div class="important">
+            <h4>⚖️ Contestation</h4>
+            <p>Si vous souhaitez contester cette amende, vous disposez d'un délai de 15 jours à compter de la réception de cette notification pour déposer un recours auprès du tribunal compétent.</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>Cette notification a été générée automatiquement par le système de gestion des infractions routières.</p>
+        <p>Pour toute question, veuillez contacter les services de police de la circulation.</p>
+        <p>© {{ amende.date_emission.year }} - République Démocratique du Congo</p>
+    </div>
+</body>
+</html>
