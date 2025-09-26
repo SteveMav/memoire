@@ -104,6 +104,50 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Gestion des codes agents (Admin seulement) -->
+                {% if user.is_staff %}
+                <div class="card shadow-sm mt-4">
+                    <div class="card-header bg-success text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-key me-2"></i>
+                            Gestion des codes agents
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-success" id="generateAgentCodeBtn">
+                                <i class="fas fa-plus me-2"></i>
+                                Générer un nouveau code agent
+                            </button>
+                        </div>
+                        <div id="agentCodeLoader" class="text-center mt-3" style="display: none;">
+                            <div class="spinner-border spinner-border-sm text-success" role="status">
+                                <span class="visually-hidden">Génération...</span>
+                            </div>
+                            <small class="d-block mt-1">Génération du code...</small>
+                        </div>
+                        <div id="agentCodeResult" class="mt-3" style="display: none;">
+                            <!-- Résultat de la génération -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Liste des codes agents récents (Admin seulement) -->
+                <div class="card shadow-sm mt-4">
+                    <div class="card-header bg-info text-white">
+                        <h6 class="mb-0">
+                            <i class="fas fa-list me-2"></i>
+                            Codes agents récents
+                        </h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="recentAgentCodes">
+                            <!-- Chargé dynamiquement -->
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
 
             <!-- Contenu principal -->

@@ -54,6 +54,55 @@ def save_user_profile(sender, instance, **kwargs):
     instance.profile.save()
 
 
+class AgentCode(models.Model):
+    """Modèle pour stocker les codes d'agents générés par l'admin"""
+    code = models.CharField(max_length=6, unique=True, verbose_name='Code agent')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Créé le')
+    created_by = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='Créé par', related_name='generated_agent_codes')
+    is_used = models.BooleanField(default=False, verbose_name='Utilisé')
+    used_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, verbose_name='Utilisé par', related_name='used_agent_code')
+    used_at = models.DateTimeField(null=True, blank=True, verbose_name='Utilisé le')
+    
+    class Meta:
+        verbose_name = 'Code agent'
+        verbose_name_plural = 'Codes agents'
+        ordering = ['-created_at']
+    
+    def __str__(self):
+        status = "Utilisé" if self.is_used else "Disponible"
+        return f"Code {self.code} - {status}"
+    
+    @classmethod
+    def generate_code(cls, created_by):
+        """Génère un nouveau code agent unique"""
+        max_attempts = 100
+        for _ in range(max_attempts):
+            # Générer un code à 6 chiffres
+            code = ''.join(random.choices(string.digits, k=6))
+            
+            # Vérifier l'unicité
+            if not cls.objects.filter(code=code).exists():
+                # Créer le nouveau code
+                agent_code = cls.objects.create(
+                    code=code,
+                    created_by=created_by
+                )
+                return agent_code
+        
+        raise ValueError("Impossible de générer un code unique après plusieurs tentatives")
+    
+    def mark_as_used(self, user):
+        """Marque le code comme utilisé par un utilisateur"""
+        self.is_used = True
+        self.used_by = user
+        self.used_at = timezone.now()
+        self.save()
+    
+    def is_available(self):
+        """Vérifie si le code est disponible pour utilisation"""
+        return not self.is_used
+
+
 class PasswordResetCode(models.Model):
     """Modèle pour stocker les codes de récupération de mot de passe"""
     user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='Utilisateur')

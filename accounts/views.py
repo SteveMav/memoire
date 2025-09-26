@@ -8,7 +8,7 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 from django.urls import reverse
 from .forms import LoginForm, RegisterForm, PasswordResetRequestForm, PasswordResetCodeForm, NewPasswordForm
-from .models import PasswordResetCode
+from .models import PasswordResetCode, AgentCode
 from .email_utils import send_password_reset_email, send_password_changed_notification
 from detection.models import Detection, Amende, Infraction
 from vehicules.models import Vehicle
@@ -522,4 +522,86 @@ def update_amende_status(request):
         return JsonResponse({
             'success': False,
             'message': f'Erreur lors de la mise à jour: {str(e)}'
+        })
+
+
+@login_required
+def generate_agent_code(request):
+    """Génère un nouveau code agent (Admin seulement)"""
+    print(f"generate_agent_code appelée par {request.user.username}")
+    print(f"User is_staff: {request.user.is_staff}")
+    print(f"Method: {request.method}")
+    
+    if not request.user.is_staff:
+        print("Accès refusé - utilisateur non staff")
+        return JsonResponse({
+            'success': False,
+            'message': 'Accès non autorisé'
+        })
+    
+    if request.method == 'POST':
+        try:
+            print("Tentative de génération de code...")
+            # Générer un nouveau code
+            agent_code = AgentCode.generate_code(created_by=request.user)
+            print(f"Code généré: {agent_code.code}")
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Code agent généré avec succès',
+                'code': {
+                    'id': agent_code.id,
+                    'code': agent_code.code,
+                    'created_at': agent_code.created_at.strftime('%d/%m/%Y à %H:%M'),
+                    'created_by': agent_code.created_by.get_full_name() or agent_code.created_by.username,
+                    'is_used': agent_code.is_used
+                }
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Erreur lors de la génération: {str(e)}'
+            })
+    
+    return JsonResponse({
+        'success': False,
+        'message': 'Méthode non autorisée'
+    })
+
+
+@login_required
+def get_recent_agent_codes(request):
+    """Récupère la liste des codes agents récents (Admin seulement)"""
+    if not request.user.is_staff:
+        return JsonResponse({
+            'success': False,
+            'message': 'Accès non autorisé'
+        })
+    
+    try:
+        # Récupérer les 10 codes les plus récents
+        recent_codes = AgentCode.objects.all()[:10]
+        
+        codes_data = []
+        for code in recent_codes:
+            codes_data.append({
+                'id': code.id,
+                'code': code.code,
+                'created_at': code.created_at.strftime('%d/%m/%Y à %H:%M'),
+                'created_by': code.created_by.get_full_name() or code.created_by.username,
+                'is_used': code.is_used,
+                'used_by': code.used_by.get_full_name() if code.used_by else None,
+                'used_at': code.used_at.strftime('%d/%m/%Y à %H:%M') if code.used_at else None
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'codes': codes_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors de la récupération: {str(e)}'
         })

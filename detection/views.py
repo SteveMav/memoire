@@ -253,6 +253,10 @@ def extract_manual_plate(request):
             if clean_image_path.startswith('media/'):
                 clean_image_path = clean_image_path[6:]  # Supprimer 'media/'
             
+            # Décoder l'URL pour gérer les caractères spéciaux comme %20 (espaces)
+            from urllib.parse import unquote
+            clean_image_path = unquote(clean_image_path)
+            
             # Charger l'image originale
             full_image_path = os.path.join(settings.MEDIA_ROOT, clean_image_path)
             logger.info(f"Chemin original: {image_path}")

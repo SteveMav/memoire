@@ -12,6 +12,10 @@ urlpatterns = [
     path('search-amende/', views.search_amende, name='search_amende'),
     path('update-amende-status/', views.update_amende_status, name='update_amende_status'),
     
+    # URLs pour la gestion des codes agents
+    path('generate-agent-code/', views.generate_agent_code, name='generate_agent_code'),
+    path('get-recent-agent-codes/', views.get_recent_agent_codes, name='get_recent_agent_codes'),
+    
     # URLs pour la récupération de mot de passe
     path('password-reset/', views.password_reset_request, name='password_reset_request'),
     path('password-reset/code/', views.password_reset_code, name='password_reset_code'),

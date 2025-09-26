@@ -2,7 +2,7 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User, Group
 from django.core.exceptions import ValidationError
-from .models import Profile, PasswordResetCode
+from .models import Profile, PasswordResetCode, AgentCode
 
 class LoginForm(forms.Form):
     email = forms.CharField(
@@ -50,6 +50,15 @@ class RegisterForm(UserCreationForm):
             'placeholder': 'Votre nom'
         })
     )
+    phone_number = forms.CharField(
+        max_length=15,
+        required=True,
+        label='Numéro de téléphone',
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': '+243 XXX XXX XXX'
+        })
+    )
     user_type = forms.ChoiceField(
         choices=Profile.USER_TYPE_CHOICES,
         required=True,
@@ -59,28 +68,30 @@ class RegisterForm(UserCreationForm):
             'id': 'id_user_type'
         })
     )
-    agent_number = forms.CharField(
-        max_length=20,
+    agent_code = forms.CharField(
+        max_length=6,
         required=False,
-        label='Numéro matricule',
+        label='Code agent',
         widget=forms.TextInput(attrs={
             'class': 'form-control',
-            'placeholder': 'Entrez votre numéro matricule',
-            'id': 'id_agent_number'
+            'placeholder': 'Code à 6 chiffres',
+            'id': 'id_agent_code',
+            'maxlength': '6',
+            'pattern': '[0-9]{6}'
         }),
-        help_text='Obligatoire pour les agents'
+        help_text='Code à 6 chiffres fourni par l\'administrateur (obligatoire pour les agents)'
     )
 
     class Meta:
         model = User
-        fields = ('username', 'first_name', 'last_name', 'email', 'password1', 'password2')
+        fields = ('first_name', 'last_name', 'email', 'password1', 'password2')
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['username'].widget.attrs.update({
-            'class': 'form-control',
-            'placeholder': 'Choisissez un nom d\'utilisateur'
-        })
+        # Supprimer le champ username du formulaire
+        if 'username' in self.fields:
+            del self.fields['username']
+        
         self.fields['password1'].widget.attrs.update({
             'class': 'form-control',
             'placeholder': 'Créez un mot de passe'
@@ -90,37 +101,74 @@ class RegisterForm(UserCreationForm):
             'placeholder': 'Confirmez votre mot de passe'
         })
 
-    def clean_agent_number(self):
-        agent_number = self.cleaned_data.get('agent_number')
+    def clean_agent_code(self):
+        agent_code = self.cleaned_data.get('agent_code')
         user_type = self.data.get('user_type')
         
         # Validation conditionnelle pour les agents
         if user_type == 'agent':
-            if not agent_number or agent_number.strip() == '':
+            if not agent_code or agent_code.strip() == '':
                 raise forms.ValidationError(
-                    'Le numéro matricule est obligatoire pour les agents.'
+                    'Le code agent est obligatoire pour les agents.'
                 )
-            # Validation du format du numéro matricule
-            if len(agent_number.strip()) < 5:
+            
+            # Validation du format du code (6 chiffres)
+            if not agent_code.isdigit() or len(agent_code) != 6:
                 raise forms.ValidationError(
-                    'Le numéro matricule doit contenir au moins 5 caractères.'
+                    'Le code agent doit contenir exactement 6 chiffres.'
+                )
+            
+            # Vérifier si le code existe et est disponible
+            try:
+                code_obj = AgentCode.objects.get(code=agent_code)
+                if not code_obj.is_available():
+                    raise forms.ValidationError(
+                        'Ce code agent a déjà été utilisé.'
+                    )
+            except AgentCode.DoesNotExist:
+                raise forms.ValidationError(
+                    'Code agent invalide. Contactez l\'administrateur.'
                 )
         
-        return agent_number
+        return agent_code
+    
+    def clean_email(self):
+        email = self.cleaned_data.get('email')
+        if User.objects.filter(email=email).exists():
+            raise forms.ValidationError(
+                'Un compte avec cette adresse email existe déjà.'
+            )
+        return email
 
     def save(self, commit=True):
         user = super().save(commit=False)
+        # Générer un username basé sur l'email
+        user.username = self.cleaned_data['email'].split('@')[0]
+        # S'assurer que le username est unique
+        base_username = user.username
+        counter = 1
+        while User.objects.filter(username=user.username).exists():
+            user.username = f"{base_username}{counter}"
+            counter += 1
+            
         user.email = self.cleaned_data['email']
         user.first_name = self.cleaned_data['first_name']
         user.last_name = self.cleaned_data['last_name']
         
         if commit:
             user.save()
-            # Update the profile with user type and agent number
+            # Update the profile with user type, phone and agent info
             profile = user.profile
             profile.user_type = self.cleaned_data['user_type']
+            profile.phone = self.cleaned_data['phone_number']
+            
             if self.cleaned_data['user_type'] == 'agent':
-                profile.agent_number = self.cleaned_data['agent_number']
+                agent_code = self.cleaned_data['agent_code']
+                # Marquer le code comme utilisé et assigner le numéro agent
+                code_obj = AgentCode.objects.get(code=agent_code)
+                code_obj.mark_as_used(user)
+                profile.agent_number = agent_code
+                
                 # Add user to agent group
                 try:
                     agent_group = Group.objects.get(name='agent')
@@ -129,6 +177,7 @@ class RegisterForm(UserCreationForm):
                     # Create the agent group if it doesn't exist
                     agent_group = Group.objects.create(name='agent')
                     user.groups.add(agent_group)
+            
             profile.save()
         
         return user

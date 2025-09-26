@@ -1,5 +1,5 @@
 /**
- * JavaScript pour l'espace agent - Gestion des recherches asynchrones
+ * JavaScript pour l'espace agent - Gestion des recherches asynchrones et codes agents
  */
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -15,6 +15,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const amendeSearchLoader = document.getElementById('amendeSearchLoader');
     const amendeSearchResults = document.getElementById('amendeSearchResults');
     const amendeSearchResultsContent = document.getElementById('amendeSearchResultsContent');
+    
+    // Éléments pour la gestion des codes agents
+    const generateAgentCodeBtn = document.getElementById('generateAgentCodeBtn');
+    const agentCodeLoader = document.getElementById('agentCodeLoader');
+    const agentCodeResult = document.getElementById('agentCodeResult');
+    const recentAgentCodes = document.getElementById('recentAgentCodes');
 
     // Gestion du formulaire de recherche de plaque
     if (searchForm) {
@@ -30,6 +36,28 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             performAmendeSearch();
         });
+    }
+
+    // Gestion du bouton de génération de code agent
+    console.log('generateAgentCodeBtn:', generateAgentCodeBtn);
+    if (generateAgentCodeBtn) {
+        console.log('Event listener ajouté au bouton de génération');
+        generateAgentCodeBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            console.log('Bouton de génération cliqué');
+            generateAgentCode();
+        });
+    } else {
+        console.log('Bouton de génération non trouvé');
+    }
+
+    // Charger les codes agents récents au démarrage
+    console.log('recentAgentCodes:', recentAgentCodes);
+    if (recentAgentCodes) {
+        console.log('Chargement des codes récents');
+        loadRecentAgentCodes();
+    } else {
+        console.log('Element recentAgentCodes non trouvé');
     }
 
     // Recherche en temps réel (optionnel - avec délai)
@@ -727,6 +755,172 @@ document.addEventListener('DOMContentLoaded', function() {
                 observationsDiv.innerHTML = amendeData.observations.replace(/\n/g, '<br>');
             }
         }
+    }
+
+    /**
+     * Génère un nouveau code agent
+     */
+    function generateAgentCode() {
+        console.log('generateAgentCode() appelée');
+        console.log('generateAgentCodeBtn:', generateAgentCodeBtn);
+        console.log('agentCodeLoader:', agentCodeLoader);
+        console.log('agentCodeResult:', agentCodeResult);
+        
+        if (!generateAgentCodeBtn || !agentCodeLoader || !agentCodeResult) {
+            console.error('Éléments manquants pour la génération de code');
+            return;
+        }
+        
+        console.log('Affichage du loader...');
+        // Afficher le loader
+        agentCodeLoader.style.display = 'block';
+        agentCodeResult.style.display = 'none';
+        generateAgentCodeBtn.disabled = true;
+        
+        console.log('Envoi de la requête fetch...');
+        fetch('/accounts/generate-agent-code/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            }
+        })
+        .then(response => {
+            console.log('Réponse reçue:', response);
+            return response.json();
+        })
+        .then(data => {
+            console.log('Données reçues:', data);
+            agentCodeLoader.style.display = 'none';
+            generateAgentCodeBtn.disabled = false;
+            
+            if (data.success) {
+                console.log('Génération réussie');
+                displayGeneratedCode(data.code);
+                loadRecentAgentCodes(); // Recharger la liste
+                if (window.showSuccess) {
+                    window.showSuccess(data.message);
+                }
+            } else {
+                console.log('Erreur dans la réponse:', data.message);
+                if (window.showError) {
+                    window.showError(data.message);
+                } else {
+                    console.error('Erreur:', data.message);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors de la génération du code:', error);
+            agentCodeLoader.style.display = 'none';
+            generateAgentCodeBtn.disabled = false;
+            
+            if (window.showError) {
+                window.showError('Erreur de connexion lors de la génération du code');
+            }
+        });
+    }
+
+    /**
+     * Affiche le code généré
+     */
+    function displayGeneratedCode(code) {
+        if (!agentCodeResult) return;
+        
+        agentCodeResult.innerHTML = `
+            <div class="alert alert-success">
+                <h6 class="alert-heading">
+                    <i class="fas fa-check-circle me-2"></i>
+                    Code généré avec succès !
+                </h6>
+                <div class="text-center my-3">
+                    <div class="bg-light p-3 rounded border" style="font-size: 2rem; font-weight: bold; letter-spacing: 0.5rem; color: #28a745;">
+                        ${code.code}
+                    </div>
+                </div>
+                <hr>
+                <small class="text-muted">
+                    <i class="fas fa-info-circle me-1"></i>
+                    Ce code peut maintenant être utilisé pour l'inscription d'un nouvel agent.
+                    <br>
+                    <strong>Créé le:</strong> ${code.created_at}
+                </small>
+            </div>
+        `;
+        
+        agentCodeResult.style.display = 'block';
+    }
+
+    /**
+     * Charge la liste des codes agents récents
+     */
+    function loadRecentAgentCodes() {
+        if (!recentAgentCodes) return;
+        
+        fetch('/accounts/get-recent-agent-codes/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayRecentAgentCodes(data.codes);
+            } else {
+                console.error('Erreur lors du chargement des codes:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement des codes:', error);
+        });
+    }
+
+    /**
+     * Affiche la liste des codes agents récents
+     */
+    function displayRecentAgentCodes(codes) {
+        if (!recentAgentCodes) return;
+        
+        if (codes.length === 0) {
+            recentAgentCodes.innerHTML = `
+                <div class="text-center py-4">
+                    <i class="fas fa-key fa-2x text-muted mb-2"></i>
+                    <p class="text-muted mb-0">Aucun code généré</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '<div class="table-responsive"><table class="table table-sm mb-0">';
+        html += `
+            <thead class="table-light">
+                <tr>
+                    <th>Code</th>
+                    <th>Créé le</th>
+                    <th>Statut</th>
+                    <th>Utilisé par</th>
+                </tr>
+            </thead>
+            <tbody>
+        `;
+        
+        codes.forEach(code => {
+            const statusBadge = code.is_used 
+                ? '<span class="badge bg-danger">Utilisé</span>'
+                : '<span class="badge bg-success">Disponible</span>';
+            
+            const usedBy = code.used_by 
+                ? `<small>${code.used_by}<br><span class="text-muted">${code.used_at}</span></small>`
+                : '<span class="text-muted">-</span>';
+            
+            html += `
+                <tr>
+                    <td><code>${code.code}</code></td>
+                    <td><small>${code.created_at}</small></td>
+                    <td>${statusBadge}</td>
+                    <td>${usedBy}</td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table></div>';
+        recentAgentCodes.innerHTML = html;
     }
 
     /**

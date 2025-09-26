@@ -73,18 +73,6 @@
                             </div>
 
                             <div class="mb-3">
-                                <label for="{{ form.username.id_for_label }}" class="form-label fw-semibold">
-                                    <i class="fas fa-at me-2" style="color: #2c3e50;"></i>{{ form.username.label }}
-                                </label>
-                                {{ form.username }}
-                                {% if form.username.errors %}
-                                    <div class="text-danger small mt-1">
-                                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.username.errors.0 }}
-                                    </div>
-                                {% endif %}
-                            </div>
-
-                            <div class="mb-3">
                                 <label for="{{ form.email.id_for_label }}" class="form-label fw-semibold">
                                     <i class="fas fa-envelope me-2" style="color: #2c3e50;"></i>{{ form.email.label }}
                                 </label>
@@ -92,6 +80,18 @@
                                 {% if form.email.errors %}
                                     <div class="text-danger small mt-1">
                                         <i class="fas fa-exclamation-circle me-1"></i>{{ form.email.errors.0 }}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="{{ form.phone_number.id_for_label }}" class="form-label fw-semibold">
+                                    <i class="fas fa-phone me-2" style="color: #2c3e50;"></i>{{ form.phone_number.label }}
+                                </label>
+                                {{ form.phone_number }}
+                                {% if form.phone_number.errors %}
+                                    <div class="text-danger small mt-1">
+                                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.phone_number.errors.0 }}
                                     </div>
                                 {% endif %}
                             </div>
@@ -115,21 +115,21 @@
                                 {% endif %}
                             </div>
 
-                            <!-- Agent Number Field (conditionally shown) -->
-                            <div class="mb-3" id="agent-number-field" style="display: none;">
-                                <label for="{{ form.agent_number.id_for_label }}" class="form-label fw-semibold">
-                                    <i class="fas fa-id-badge me-2" style="color: #2c3e50;"></i>{{ form.agent_number.label }}
+                            <!-- Agent Code Field (conditionally shown) -->
+                            <div class="mb-3" id="agent-code-field" style="display: none;">
+                                <label for="{{ form.agent_code.id_for_label }}" class="form-label fw-semibold">
+                                    <i class="fas fa-key me-2" style="color: #2c3e50;"></i>{{ form.agent_code.label }}
                                 </label>
-                                {{ form.agent_number }}
+                                {{ form.agent_code }}
                                 <div class="form-text">
                                     <small class="text-muted">
                                         <i class="fas fa-info-circle me-1" style="color: #2c3e50;"></i>
-                                        {{ form.agent_number.help_text }}
+                                        {{ form.agent_code.help_text }}
                                     </small>
                                 </div>
-                                {% if form.agent_number.errors %}
+                                {% if form.agent_code.errors %}
                                     <div class="text-danger small mt-1">
-                                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.agent_number.errors.0 }}
+                                        <i class="fas fa-exclamation-circle me-1"></i>{{ form.agent_code.errors.0 }}
                                     </div>
                                 {% endif %}
                             </div>
@@ -191,32 +191,32 @@
     <!-- Custom JS -->
     <script src="{% static 'js/main.js' %}"></script>
     
-    <!-- Agent Number Field Toggle Script -->
+    <!-- Agent Code Field Toggle Script -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const userTypeSelect = document.getElementById('id_user_type');
-            const agentNumberField = document.getElementById('agent-number-field');
-            const agentNumberInput = document.getElementById('id_agent_number');
+            const agentCodeField = document.getElementById('agent-code-field');
+            const agentCodeInput = document.getElementById('id_agent_code');
             
-            function toggleAgentNumberField() {
+            function toggleAgentCodeField() {
                 console.log('User type selected:', userTypeSelect.value); // Debug
                 if (userTypeSelect.value === 'agent') {
-                    agentNumberField.style.display = 'block';
-                    agentNumberInput.required = true;
-                    console.log('Agent field shown'); // Debug
+                    agentCodeField.style.display = 'block';
+                    agentCodeInput.required = true;
+                    console.log('Agent code field shown'); // Debug
                 } else {
-                    agentNumberField.style.display = 'none';
-                    agentNumberInput.required = false;
-                    agentNumberInput.value = ''; // Clear the field when hidden
-                    console.log('Agent field hidden'); // Debug
+                    agentCodeField.style.display = 'none';
+                    agentCodeInput.required = false;
+                    agentCodeInput.value = ''; // Clear the field when hidden
+                    console.log('Agent code field hidden'); // Debug
                 }
             }
             
             // Initial check
-            toggleAgentNumberField();
+            toggleAgentCodeField();
             
             // Listen for changes
-            userTypeSelect.addEventListener('change', toggleAgentNumberField);
+            userTypeSelect.addEventListener('change', toggleAgentCodeField);
         });
     </script>
 </body>
