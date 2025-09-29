@@ -41,7 +41,8 @@ def register_view(request):
             try:
                 user = form.save()
                 messages.success(request, 'Compte créé avec succès! Vous pouvez maintenant vous connecter.')
-                login(request, user)
+                # Spécifier explicitement le backend d'authentification
+                login(request, user, backend='accounts.backends.EmailBackend')
                 return redirect('home')
             except Exception as e:
                 messages.error(request, f'Erreur lors de la création du compte: {str(e)}')
