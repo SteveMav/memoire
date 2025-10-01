@@ -47,14 +47,14 @@ class Infraction(models.Model):
         decimal_places=2,
         null=True,
         blank=True,
-        verbose_name="Amende minimale (Z)"
+        verbose_name="Amende minimale (Fc)"
     )
     amount_max = models.DecimalField(
         max_digits=10,
         decimal_places=2,
         null=True,
         blank=True,
-        verbose_name="Amende maximale (Z)"
+        verbose_name="Amende maximale (Fc)"
     )
     class Meta:
         verbose_name = "Infraction"
@@ -122,7 +122,7 @@ class Amende(models.Model):
     montant = models.DecimalField(
         max_digits=10,
         decimal_places=2,
-        verbose_name="Montant de l'amende (Z)"
+        verbose_name="Montant de l'amende (Fc)"
     )
     statut = models.CharField(
         max_length=20,

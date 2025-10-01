@@ -408,7 +408,7 @@ function countUnpaidAmendes(amendes) {
  * Formater un montant en devise
  */
 function formatCurrency(amount) {
-    return new Intl.NumberFormat('fr-FR').format(amount) + ' Z';
+    return new Intl.NumberFormat('fr-FR').format(amount) + ' Fc';
 }
 
 /**

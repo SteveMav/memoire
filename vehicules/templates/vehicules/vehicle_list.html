@@ -96,7 +96,7 @@
                 <div class="card border-warning">
                     <div class="card-body text-center">
                         <i class="fas fa-money-bill-wave fa-2x text-warning mb-2"></i>
-                        <h5 class="card-title">{{ montant_total_amendes|floatformat:0 }} Z</h5>
+                        <h5 class="card-title">{{ montant_total_amendes|floatformat:0 }} Fc</h5>
                         <p class="card-text text-muted">Montant total des amendes</p>
                     </div>
                 </div>
@@ -220,7 +220,7 @@
                             </small>
                             {% if vehicle.montant_total_amendes %}
                             <small class="text-warning fw-semibold">
-                                {{ vehicle.montant_total_amendes|floatformat:0 }} Z
+                                {{ vehicle.montant_total_amendes|floatformat:0 }} Fc
                             </small>
                             {% endif %}
                         </div>

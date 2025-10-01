@@ -624,7 +624,7 @@ function onInfractionChange() {
             <p><strong>Code:</strong> ${selectedOption.textContent.split(' - ')[0]}</p>
             <p><strong>Catégorie:</strong> ${getCategoryDisplayName(selectedOption.dataset.category)}</p>
             <p><strong>Description:</strong> ${selectedOption.dataset.description}</p>
-            <p><strong>Montant:</strong> ${selectedOption.dataset.amende} Z</p>
+            <p><strong>Montant:</strong> ${selectedOption.dataset.amende} Fc</p>
         `;
         infractionDetails.style.display = 'block';
     } else {
@@ -696,7 +696,7 @@ async function emettrAmende() {
             
             // Afficher le succès
             const message = `Amende ${data.amende.numero} émise avec succès!\n` +
-                          `Montant: ${data.amende.montant} Z\n` +
+                          `Montant: ${data.amende.montant} Fc\n` +
                           `Date limite: ${data.amende.date_limite}\n` +
                           `Email envoyé: ${data.amende.email_envoye ? 'Oui' : 'Non'}`;
             
