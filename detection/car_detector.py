@@ -81,10 +81,10 @@ class CarDetector:
 
     def preprocess_plate_simple(self, plate_img):
         """
-        Préprocesse l'image de plaque selon les 3 étapes demandées :
+        Préprocesse l'image de plaque avec une approche simplifiée :
         1. Conversion en niveaux de gris
-        2. Conversion en binaire
-        3. Prêt pour l'extraction OCR
+        2. Filtre bilatéral pour réduire le bruit tout en préservant les contours
+        3. Seuillage adaptatif pour conversion en binaire
         """
         if plate_img is None or plate_img.size == 0:
             logger.warning("Image de plaque vide reçue pour le pré-traitement.")
@@ -97,14 +97,13 @@ class CarDetector:
         if h == 0 or w == 0:
             return None
 
-        # Redimensionner si l'image est trop petite pour améliorer l'OCR
-        if h < 50:
-            scale_factor = 2
-            gray = cv2.resize(gray, (w * scale_factor, h * scale_factor), interpolation=cv2.INTER_CUBIC)
+        # ÉTAPE 2: Filtre bilatéral pour réduire le bruit tout en gardant les contours nets
+        gray = cv2.bilateralFilter(gray, 9, 75, 75)
 
-        # ÉTAPE 2: Conversion en binaire
-        # Utilisation d'un seuillage adaptatif pour gérer les variations d'éclairage
-        binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+        # ÉTAPE 3: Seuillage adaptatif pour conversion en binaire
+        # Utilise une fenêtre adaptative pour gérer les variations d'éclairage
+        binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                                      cv2.THRESH_BINARY, 11, 2)
 
         return binary
 
