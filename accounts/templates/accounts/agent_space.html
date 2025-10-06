@@ -165,11 +165,15 @@
                 <!-- Résultats de recherche de plaque -->
                 <div id="searchResults" style="display: none;">
                     <div class="card shadow-sm mb-4">
-                        <div class="card-header bg-info text-white">
+                        <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
                             <h5 class="mb-0">
                                 <i class="fas fa-car me-2"></i>
                                 Résultats de recherche de plaque
                             </h5>
+                            <button type="button" class="btn btn-warning btn-sm" id="emettreAmendeBtn">
+                                <i class="fas fa-file-invoice-dollar me-2"></i>
+                                Émettre une amende
+                            </button>
                         </div>
                         <div class="card-body" id="searchResultsContent">
                             <!-- Contenu dynamique -->
@@ -359,6 +363,84 @@
             </div>
         </div>
     </main>
+
+    <!-- Modal pour émettre une amende -->
+    <div class="modal fade" id="amendeFormModal" tabindex="-1" aria-labelledby="amendeFormModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header" style="background-color: #f39c12; color: white;">
+                    <h5 class="modal-title" id="amendeFormModalLabel">
+                        <i class="fas fa-file-invoice-dollar me-2"></i>Émettre une amende
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- Informations du véhicule -->
+                    <div class="alert alert-info mb-4">
+                        <h6 class="mb-2"><i class="fas fa-car me-2"></i>Véhicule concerné</h6>
+                        <div id="amendeVehicleInfo">
+                            <!-- Rempli dynamiquement -->
+                        </div>
+                    </div>
+
+                    <form id="amendeForm">
+                        <input type="hidden" id="amendeVehicleId" name="vehicle_id">
+                        
+                        <div class="mb-3">
+                            <label for="amendeInfraction" class="form-label fw-semibold">
+                                <i class="fas fa-gavel me-2"></i>Infraction commise *
+                            </label>
+                            <select class="form-select" id="amendeInfraction" name="infraction_id" required>
+                                <option value="">-- Sélectionnez une infraction --</option>
+                                <!-- Options chargées dynamiquement -->
+                            </select>
+                            <div class="form-text">
+                                <small id="infractionDetails" class="text-muted"></small>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="amendeLieu" class="form-label fw-semibold">
+                                <i class="fas fa-map-marker-alt me-2"></i>Lieu de l'infraction *
+                            </label>
+                            <input type="text" class="form-control" id="amendeLieu" name="lieu_infraction" 
+                                   placeholder="Ex: Avenue du Port, Kinshasa" required maxlength="200">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="amendeMontant" class="form-label fw-semibold">
+                                <i class="fas fa-money-bill-wave me-2"></i>Montant de l'amende (Fc)
+                            </label>
+                            <input type="text" class="form-control" id="amendeMontant" readonly 
+                                   style="background-color: #f8f9fa; font-weight: bold; color: #e74c3c;">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="amendeObservations" class="form-label fw-semibold">
+                                <i class="fas fa-comment me-2"></i>Observations (optionnel)
+                            </label>
+                            <textarea class="form-control" id="amendeObservations" name="observations" 
+                                      rows="3" placeholder="Ajouter des détails supplémentaires..."></textarea>
+                        </div>
+
+                        <div class="alert alert-warning">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Information :</strong> Le propriétaire du véhicule recevra automatiquement 
+                            une notification par email avec les détails de l'amende.
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-2"></i>Annuler
+                    </button>
+                    <button type="button" class="btn btn-warning" id="submitAmendeBtn">
+                        <i class="fas fa-paper-plane me-2"></i>Émettre l'amende
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     {% include 'footer.html' %}
 

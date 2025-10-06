@@ -11,6 +11,8 @@ urlpatterns = [
     path('search-plate/', views.search_plate, name='search_plate'),
     path('search-amende/', views.search_amende, name='search_amende'),
     path('update-amende-status/', views.update_amende_status, name='update_amende_status'),
+    path('get-infractions/', views.get_infractions, name='get_infractions'),
+    path('emettre-amende/', views.emettre_amende_agent, name='emettre_amende_agent'),
     
     # URLs pour la gestion des codes agents
     path('generate-agent-code/', views.generate_agent_code, name='generate_agent_code'),

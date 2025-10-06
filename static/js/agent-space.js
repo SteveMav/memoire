@@ -22,6 +22,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const agentCodeResult = document.getElementById('agentCodeResult');
     const recentAgentCodes = document.getElementById('recentAgentCodes');
 
+    // Éléments pour l'émission d'amendes
+    const emettreAmendeBtn = document.getElementById('emettreAmendeBtn');
+    const amendeFormModal = document.getElementById('amendeFormModal');
+    const amendeForm = document.getElementById('amendeForm');
+    const submitAmendeBtn = document.getElementById('submitAmendeBtn');
+    const amendeInfractionSelect = document.getElementById('amendeInfraction');
+    const amendeMontantInput = document.getElementById('amendeMontant');
+    const infractionDetailsSpan = document.getElementById('infractionDetails');
+
+    // Variables globales pour la gestion des amendes
+    let currentVehicleData = null;
+    let infractionsData = [];
+
     // Gestion du formulaire de recherche de plaque
     if (searchForm) {
         searchForm.addEventListener('submit', function(e) {
@@ -58,6 +71,30 @@ document.addEventListener('DOMContentLoaded', function() {
         loadRecentAgentCodes();
     } else {
         console.log('Element recentAgentCodes non trouvé');
+    }
+
+    // Charger les infractions au démarrage
+    loadInfractions();
+
+    // Gestionnaire pour le bouton "Émettre une amende"
+    if (emettreAmendeBtn) {
+        emettreAmendeBtn.addEventListener('click', function() {
+            openAmendeModal();
+        });
+    }
+
+    // Gestionnaire pour le changement d'infraction
+    if (amendeInfractionSelect) {
+        amendeInfractionSelect.addEventListener('change', function() {
+            updateInfractionDetails();
+        });
+    }
+
+    // Gestionnaire pour soumettre l'amende
+    if (submitAmendeBtn) {
+        submitAmendeBtn.addEventListener('click', function() {
+            submitAmende();
+        });
     }
 
     // Recherche en temps réel (optionnel - avec délai)
@@ -171,6 +208,16 @@ document.addEventListener('DOMContentLoaded', function() {
      */
     function displaySearchResults(data) {
         let html = '';
+
+        // Stocker les données du véhicule pour l'émission d'amende
+        currentVehicleData = data.vehicle;
+
+        // Afficher le bouton "Émettre une amende" si un véhicule est trouvé
+        if (emettreAmendeBtn && data.vehicle) {
+            emettreAmendeBtn.style.display = 'inline-block';
+        } else if (emettreAmendeBtn) {
+            emettreAmendeBtn.style.display = 'none';
+        }
 
         // Informations du véhicule
         if (data.vehicle) {
@@ -941,6 +988,244 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
         return '';
+    }
+
+    // ============================================================================
+    // FONCTIONS POUR L'ÉMISSION D'AMENDES
+    // ============================================================================
+
+    /**
+     * Charge la liste des infractions depuis le serveur
+     */
+    function loadInfractions() {
+        fetch('/accounts/get-infractions/', {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json',
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                infractionsData = data.infractions;
+                populateInfractionSelect();
+            } else {
+                console.error('Erreur lors du chargement des infractions:', data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors du chargement des infractions:', error);
+        });
+    }
+
+    /**
+     * Remplit le select des infractions
+     */
+    function populateInfractionSelect() {
+        if (!amendeInfractionSelect) return;
+
+        // Vider le select sauf l'option par défaut
+        amendeInfractionSelect.innerHTML = '<option value="">-- Sélectionnez une infraction --</option>';
+
+        // Grouper par catégorie
+        const grouped = {};
+        infractionsData.forEach(infraction => {
+            const category = infraction.category_display || infraction.category;
+            if (!grouped[category]) {
+                grouped[category] = [];
+            }
+            grouped[category].push(infraction);
+        });
+
+        // Ajouter les options groupées
+        Object.keys(grouped).forEach(category => {
+            const optgroup = document.createElement('optgroup');
+            optgroup.label = category;
+
+            grouped[category].forEach(infraction => {
+                const option = document.createElement('option');
+                option.value = infraction.id;
+                option.textContent = `${infraction.code_article} - ${infraction.description.substring(0, 80)}${infraction.description.length > 80 ? '...' : ''}`;
+                option.dataset.montant = infraction.montant_base;
+                option.dataset.description = infraction.description;
+                option.dataset.code = infraction.code_article;
+                optgroup.appendChild(option);
+            });
+
+            amendeInfractionSelect.appendChild(optgroup);
+        });
+    }
+
+    /**
+     * Met à jour les détails de l'infraction sélectionnée
+     */
+    function updateInfractionDetails() {
+        const selectedOption = amendeInfractionSelect.options[amendeInfractionSelect.selectedIndex];
+
+        if (selectedOption && selectedOption.value) {
+            const montant = selectedOption.dataset.montant;
+            const description = selectedOption.dataset.description;
+
+            // Mettre à jour le montant
+            if (amendeMontantInput) {
+                amendeMontantInput.value = `${parseFloat(montant).toLocaleString('fr-FR')} Fc`;
+            }
+
+            // Mettre à jour les détails
+            if (infractionDetailsSpan) {
+                infractionDetailsSpan.innerHTML = `<i class="fas fa-info-circle me-1"></i>${description}`;
+            }
+        } else {
+            if (amendeMontantInput) amendeMontantInput.value = '';
+            if (infractionDetailsSpan) infractionDetailsSpan.innerHTML = '';
+        }
+    }
+
+    /**
+     * Ouvre la modal d'émission d'amende
+     */
+    function openAmendeModal() {
+        if (!currentVehicleData) {
+            if (window.showError) {
+                window.showError('Aucun véhicule sélectionné');
+            } else {
+                alert('Aucun véhicule sélectionné');
+            }
+            return;
+        }
+
+        // Remplir les informations du véhicule
+        const vehicleInfoDiv = document.getElementById('amendeVehicleInfo');
+        if (vehicleInfoDiv) {
+            vehicleInfoDiv.innerHTML = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <strong>Plaque:</strong> <span class="badge bg-primary fs-6">${currentVehicleData.plate}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Véhicule:</strong> ${currentVehicleData.brand} ${currentVehicleData.model}
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-md-6">
+                        <strong>Couleur:</strong> ${currentVehicleData.color}
+                    </div>
+                    <div class="col-md-6">
+                        <strong>Propriétaire:</strong> ${currentVehicleData.owner.first_name} ${currentVehicleData.owner.last_name}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Définir l'ID du véhicule
+        document.getElementById('amendeVehicleId').value = currentVehicleData.id;
+
+        // Réinitialiser le formulaire
+        amendeForm.reset();
+        document.getElementById('amendeVehicleId').value = currentVehicleData.id;
+        if (amendeMontantInput) amendeMontantInput.value = '';
+        if (infractionDetailsSpan) infractionDetailsSpan.innerHTML = '';
+
+        // Ouvrir la modal
+        const modal = new bootstrap.Modal(amendeFormModal);
+        modal.show();
+    }
+
+    /**
+     * Soumet le formulaire d'amende
+     */
+    function submitAmende() {
+        // Validation
+        const vehicleId = document.getElementById('amendeVehicleId').value;
+        const infractionId = amendeInfractionSelect.value;
+        const lieu = document.getElementById('amendeLieu').value.trim();
+
+        if (!vehicleId || !infractionId || !lieu) {
+            showAlert('Veuillez remplir tous les champs obligatoires', 'warning');
+            return;
+        }
+
+        // Désactiver le bouton pendant l'envoi
+        const originalText = submitAmendeBtn.innerHTML;
+        submitAmendeBtn.disabled = true;
+        submitAmendeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Émission en cours...';
+
+        // Préparer les données
+        const amendeData = {
+            vehicle_id: vehicleId,
+            infraction_id: infractionId,
+            lieu_infraction: lieu,
+            observations: document.getElementById('amendeObservations').value.trim()
+        };
+
+        // Envoyer la requête
+        fetch('/accounts/emettre-amende/', {
+            method: 'POST',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken()
+            },
+            body: JSON.stringify(amendeData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showAlert(data.message, 'success');
+                
+                // Fermer la modal
+                const modal = bootstrap.Modal.getInstance(amendeFormModal);
+                modal.hide();
+
+                // Réinitialiser le formulaire
+                amendeForm.reset();
+
+                // Afficher les détails de l'amende
+                displayAmendeSuccess(data.amende);
+            } else {
+                showAlert(data.message || 'Erreur lors de l\'émission de l\'amende', 'danger');
+            }
+        })
+        .catch(error => {
+            console.error('Erreur lors de l\'émission de l\'amende:', error);
+            showAlert('Erreur de connexion lors de l\'émission de l\'amende', 'danger');
+        })
+        .finally(() => {
+            // Réactiver le bouton
+            submitAmendeBtn.disabled = false;
+            submitAmendeBtn.innerHTML = originalText;
+        });
+    }
+
+    /**
+     * Affiche le succès de l'émission d'amende
+     */
+    function displayAmendeSuccess(amende) {
+        const successHtml = `
+            <div class="alert alert-success alert-dismissible fade show mt-3" role="alert">
+                <h5 class="alert-heading">
+                    <i class="fas fa-check-circle me-2"></i>Amende émise avec succès !
+                </h5>
+                <hr>
+                <p class="mb-2"><strong>Numéro d'amende:</strong> <code>${amende.numero}</code></p>
+                <p class="mb-2"><strong>Montant:</strong> <span class="text-danger fw-bold">${amende.montant.toLocaleString('fr-FR')} Fc</span></p>
+                <p class="mb-2"><strong>Infraction:</strong> ${amende.code_article} - ${amende.infraction}</p>
+                <p class="mb-2"><strong>Date d'émission:</strong> ${amende.date_emission}</p>
+                <p class="mb-2"><strong>Date limite de paiement:</strong> ${amende.date_limite}</p>
+                ${amende.email_envoye ? 
+                    '<p class="mb-0 text-success"><i class="fas fa-envelope me-2"></i>Email de notification envoyé au propriétaire</p>' :
+                    '<p class="mb-0 text-warning"><i class="fas fa-exclamation-triangle me-2"></i>Email non envoyé (vérifier la configuration)</p>'
+                }
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `;
+
+        // Insérer le message de succès au début des résultats
+        const resultsContent = document.getElementById('searchResultsContent');
+        if (resultsContent) {
+            resultsContent.insertAdjacentHTML('afterbegin', successHtml);
+        }
     }
 });
 

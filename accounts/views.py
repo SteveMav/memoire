@@ -606,3 +606,130 @@ def get_recent_agent_codes(request):
             'success': False,
             'message': f'Erreur lors de la récupération: {str(e)}'
         })
+
+
+@login_required
+@permission_required('detection.add_detection', raise_exception=True)
+def get_infractions(request):
+    """Récupère la liste de toutes les infractions disponibles"""
+    try:
+        infractions = Infraction.objects.filter(
+            amount_min__isnull=False
+        ) | Infraction.objects.filter(
+            amount_max__isnull=False
+        )
+        
+        infractions_data = []
+        for infraction in infractions.distinct():
+            infractions_data.append({
+                'id': infraction.id,
+                'code_article': infraction.code_article,
+                'description': infraction.description,
+                'category': infraction.category,
+                'category_display': infraction.get_category_display(),
+                'montant_min': float(infraction.amount_min) if infraction.amount_min else None,
+                'montant_max': float(infraction.amount_max) if infraction.amount_max else None,
+                'montant_base': float(infraction.get_amende())
+            })
+        
+        return JsonResponse({
+            'success': True,
+            'infractions': infractions_data
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Erreur lors de la récupération des infractions: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@permission_required('detection.add_detection', raise_exception=True)
+def emettre_amende_agent(request):
+    """Émet une amende depuis l'espace agent"""
+    if request.method == 'POST':
+        try:
+            import json
+            from datetime import datetime, timedelta
+            
+            data = json.loads(request.body)
+            
+            # Récupérer les données
+            vehicle_id = data.get('vehicle_id')
+            infraction_id = data.get('infraction_id')
+            lieu_infraction = data.get('lieu_infraction', '')
+            observations = data.get('observations', '')
+            
+            # Validation
+            if not all([vehicle_id, infraction_id, lieu_infraction]):
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Véhicule, infraction et lieu requis'
+                }, status=400)
+            
+            # Récupérer les objets
+            try:
+                vehicle = Vehicle.objects.get(id=vehicle_id)
+                infraction = Infraction.objects.get(id=infraction_id)
+            except (Vehicle.DoesNotExist, Infraction.DoesNotExist) as e:
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Véhicule ou infraction non trouvé'
+                }, status=404)
+            
+            # Vérifier que l'infraction a une amende
+            if not infraction.has_amende():
+                return JsonResponse({
+                    'success': False,
+                    'message': 'Cette infraction n\'a pas d\'amende définie'
+                }, status=400)
+            
+            # Créer l'amende
+            amende = Amende.objects.create(
+                detection=None,  # Pas de détection associée depuis l'espace agent
+                infraction=infraction,
+                vehicle=vehicle,
+                agent=request.user,
+                lieu_infraction=lieu_infraction,
+                observations=observations,
+                date_limite_paiement=datetime.now().date() + timedelta(days=30)
+            )
+            
+            # Envoyer l'email au propriétaire
+            email_sent = False
+            try:
+                from detection.views import send_amende_email
+                email_sent = send_amende_email(amende)
+                if email_sent:
+                    amende.email_envoye = True
+                    amende.save()
+            except Exception as e:
+                # On continue même si l'email échoue
+                pass
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'Amende {amende.numero_amende} émise avec succès',
+                'amende': {
+                    'numero': amende.numero_amende,
+                    'montant': float(amende.montant),
+                    'infraction': infraction.description,
+                    'code_article': infraction.code_article,
+                    'date_emission': amende.date_emission.strftime('%d/%m/%Y %H:%M'),
+                    'date_limite': amende.date_limite_paiement.strftime('%d/%m/%Y'),
+                    'email_envoye': email_sent,
+                    'vehicle_plate': vehicle.plate
+                }
+            })
+            
+        except Exception as e:
+            return JsonResponse({
+                'success': False,
+                'message': f'Erreur lors de l\'émission d\'amende: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({
+        'success': False,
+        'message': 'Méthode non autorisée'
+    }, status=405)
