@@ -28,3 +28,9 @@ urlpatterns = [
     path('detection/', include('detection.urls')),
     path('vehicules/', include('vehicules.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Gestionnaires d'erreurs personnalisés
+handler404 = 'main.views.custom_404'
+handler500 = 'main.views.custom_500'
+handler403 = 'main.views.custom_403'
+handler400 = 'main.views.custom_400'
