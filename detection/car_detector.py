@@ -1,8 +1,6 @@
 import os
 import cv2
 import numpy as np
-import pytesseract
-import torch
 from ultralytics import YOLO
 from django.conf import settings
 import re
@@ -12,8 +10,10 @@ logger = logging.getLogger(__name__)
 
 class CarDetector:
     def __init__(self):
+        # Chemins des modèles
         self.vehicle_model_path = os.path.join(settings.BASE_DIR, 'yolov8n.pt')
         self.plate_model_path = os.path.join(settings.BASE_DIR, 'best.pt')
+        self.ocr_model_path = os.path.join(settings.BASE_DIR, 'ocr_yolov8_best.pt')
 
         if not os.path.exists(self.vehicle_model_path):
             logger.error(f"Modèle véhicule non trouvé: {self.vehicle_model_path}")
@@ -21,33 +21,37 @@ class CarDetector:
         if not os.path.exists(self.plate_model_path):
             logger.error(f"Modèle plaque non trouvé: {self.plate_model_path}")
             raise FileNotFoundError(f"Modèle plaque non trouvé: {self.plate_model_path}")
+        if not os.path.exists(self.ocr_model_path):
+            logger.error(f"Modèle OCR non trouvé: {self.ocr_model_path}")
+            raise FileNotFoundError(f"Modèle OCR non trouvé: {self.ocr_model_path}")
 
         try:
             self.vehicle_model = YOLO(self.vehicle_model_path)
             self.plate_model = YOLO(self.plate_model_path)
+            self.ocr_model = YOLO(self.ocr_model_path)
+            logger.info("Modèles YOLO chargés avec succès (véhicule, plaque, OCR)")
         except Exception as e:
             logger.error(f"Erreur lors du chargement des modèles YOLO: {e}")
             raise
 
-        try:
-            # Configuration Pytesseract
-            # Définir le chemin vers tesseract si nécessaire (Windows)
-            pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
-            
-            # Configuration OCR pour plaques d'immatriculation
-            self.tesseract_config = '--psm 8 -c tessedit_char_whitelist=0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-            logger.info("Pytesseract initialisé avec succès")
-        except Exception as e:
-            logger.error(f"Erreur lors de l'initialisation de Pytesseract: {e}")
-            raise
+        # Mapping des classes ID vers caractères
+        self.CLASS_TO_CHAR = {
+            0: '0', 1: '1', 2: '2', 3: '3', 4: '4', 5: '5', 6: '6', 7: '7', 8: '8', 9: '9',
+            10: 'A', 11: 'B', 12: 'C', 13: 'D', 14: 'E', 15: 'F', 16: 'G', 17: 'H', 18: 'I', 19: 'J',
+            20: 'K', 21: 'L', 22: 'M', 23: 'N', 24: 'O', 25: 'P', 26: 'Q', 27: 'R', 28: 'S', 29: 'T',
+            30: 'U', 31: 'V', 32: 'W', 33: 'X', 34: 'Y', 35: 'Z'
+        }
 
-        self.vehicle_classes = [2, 3, 5, 7]  # car, motorcycle, bus, truck
+        self.vehicle_classes = [2, 3, 5, 7]   # car, motorcycle, bus, truck
+        # Format strict congolais: 4 chiffres, 2 lettres, 2 chiffres
         self.congolese_plate_pattern = re.compile(r'^\d{4}[A-Z]{2}\d{2}$')
-        # Un pattern plus flexible pour l'extraction initiale
-        self.flexible_plate_pattern = re.compile(r'\d{3,}[A-Z]{1,}\d{1,}') # Au moins 3 chiffres, 1 lettre, 1 chiffre
+
+    # ==============================================================================
+    # MÉTHODES DE DÉTECTION (NÉCESSAIRES POUR ÉVITER L'ERREUR 'detect_vehicles')
+    # ==============================================================================
 
     def detect_vehicles(self, image):
-        # Le reste de cette fonction reste inchangé car elle n'est pas la source du problème
+        """Détecte les véhicules dans l'image."""
         results = self.vehicle_model(image, conf=0.4, verbose=False)
         vehicles = []
         for result in results:
@@ -65,7 +69,7 @@ class CarDetector:
         return vehicles
 
     def detect_plates(self, vehicle_region):
-        # On pourrait ajuster le conf ici aussi si 'best.pt' est optimisé pour ces plaques
+        """Détecte les plaques d'immatriculation dans une région de véhicule."""
         results = self.plate_model(vehicle_region, conf=0.5, verbose=False)
         plates = []
         for result in results:
@@ -79,207 +83,188 @@ class CarDetector:
                     })
         return plates
 
-    def preprocess_plate_simple(self, plate_img):
+    # ==============================================================================
+    # MÉTHODES DE PRÉTRAITEMENT ET OCR
+    # ==============================================================================
+
+    def preprocess_plate_for_ocr(self, plate_img):
         """
-        Préprocesse l'image de plaque avec une approche simplifiée :
-        1. Conversion en niveaux de gris
-        2. Filtre bilatéral pour réduire le bruit tout en préservant les contours
-        3. Seuillage adaptatif pour conversion en binaire
+        Applique les filtres de prétraitement OpenCV sur la plaque pour l'OCR.
+        Pipeline optimisé pour le modèle YOLO OCR.
         """
         if plate_img is None or plate_img.size == 0:
             logger.warning("Image de plaque vide reçue pour le pré-traitement.")
             return None
 
-        # ÉTAPE 1: Conversion en niveaux de gris
-        gray = cv2.cvtColor(plate_img, cv2.COLOR_BGR2GRAY)
-        
-        h, w = gray.shape
-        if h == 0 or w == 0:
+        try:
+            # 1. Conversion en niveaux de gris
+            gray = cv2.cvtColor(plate_img, cv2.COLOR_BGR2GRAY)
+            
+            # 2. Réduction du bruit avec filtre bilatéral (préserve les bords)
+            denoised = cv2.bilateralFilter(gray, 11, 17, 17)
+            
+            # 3. Améliorer le contraste avec CLAHE
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            enhanced = clahe.apply(denoised)
+            
+            # 4. Seuillage adaptatif pour isoler les caractères
+            threshold = cv2.adaptiveThreshold(
+                enhanced, 255, 
+                cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
+                cv2.THRESH_BINARY, 
+                11, 2
+            )
+            
+            # 5. Filtre morphologique pour nettoyer l'image
+            kernel = np.ones((2, 2), np.uint8)
+            morph = cv2.morphologyEx(threshold, cv2.MORPH_CLOSE, kernel)
+            
+            # Convertir en BGR pour YOLO (attend 3 canaux)
+            morph_bgr = cv2.cvtColor(morph, cv2.COLOR_GRAY2BGR)
+            
+            return morph_bgr
+            
+        except Exception as e:
+            logger.error(f"Erreur lors du prétraitement de la plaque: {e}")
             return None
-
-        # ÉTAPE 2: Filtre bilatéral pour réduire le bruit tout en gardant les contours nets
-        gray = cv2.bilateralFilter(gray, 9, 75, 75)
-
-        # ÉTAPE 3: Seuillage adaptatif pour conversion en binaire
-        # Utilise une fenêtre adaptative pour gérer les variations d'éclairage
-        binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, 
-                                      cv2.THRESH_BINARY, 11, 2)
-
-        return binary
-
 
     def clean_and_normalize_text(self, text):
         """Nettoie et normalise le texte extrait par OCR."""
-        # Comme vous l'avez mentionné, tout est en majuscules.
-        # S'assurer que les espaces ou autres caractères non-alphanumériques sont supprimés.
-        cleaned_text = re.sub(r'[^A-Z0-9]', '', text.upper())
-        return cleaned_text
+        cleaned_text = re.sub(r'[^A-Za-z0-9]', '', text)
+        return cleaned_text.upper() 
 
-
-    def extract_text_simple(self, plate_img):
+    def extract_text_with_yolo_ocr(self, plate_img, conf_threshold=0.25):
         """
-        ÉTAPE 3: Extraction des caractères de la plaque après preprocessing.
-        Utilise Pytesseract sur l'image binaire pour extraire le texte.
+        Extraction des caractères de la plaque avec le modèle YOLO OCR.
+        Applique le prétraitement puis utilise YOLO pour détecter les caractères.
         """
-        # Préprocesser l'image (gris -> binaire)
-        processed = self.preprocess_plate_simple(plate_img)
-        if processed is None:
+        if plate_img is None or plate_img.size == 0:
             return "", 0.0
 
         try:
-            # Extraction du texte avec Pytesseract
-            # Configuration optimisée pour plaques d'immatriculation
-            text = pytesseract.image_to_string(processed, config=self.tesseract_config).strip()
+            # Prétraiter l'image de la plaque
+            processed_img = self.preprocess_plate_for_ocr(plate_img)
+            if processed_img is None:
+                return "", 0.0
+
+            # Détecter les caractères avec le modèle YOLO OCR
+            results = self.ocr_model(processed_img, conf=conf_threshold, verbose=False)
             
-            # Obtenir la confiance
-            data = pytesseract.image_to_data(processed, config=self.tesseract_config, output_type=pytesseract.Output.DICT)
-            confidences = [int(conf) for conf in data['conf'] if int(conf) > 0]
-            avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+            detections = []
+            for result in results:
+                if result.boxes is not None:
+                    for box in result.boxes:
+                        x1, y1, x2, y2 = map(int, box.xyxy[0].cpu().numpy())
+                        class_id = int(box.cls[0].cpu().numpy())
+                        confidence = float(box.conf[0].cpu().numpy())
+                        
+                        # Convertir l'ID de classe en caractère
+                        char = self.CLASS_TO_CHAR.get(class_id, '?')
+                        x_center = (x1 + x2) / 2
+                        
+                        detections.append({
+                            'char': char,
+                            'confidence': confidence,
+                            'x_center': x_center
+                        })
             
-            if text:
-                # Nettoyer le texte extrait
-                cleaned_text = self.clean_and_normalize_text(text)
-                
-                # Supprimer le préfixe 'CGO' si présent
-                if cleaned_text.startswith('CGO'):
-                    cleaned_text = cleaned_text[3:]
-                
-                # Essayer d'extraire le format congolais
-                plate_text = self.extract_congolese_format(cleaned_text)
-                if plate_text:
-                    return plate_text, avg_confidence / 100.0
-                
-                # Post-traitement si format strict non trouvé
-                corrected_text = self.post_process_ocr_output(cleaned_text)
-                if self.congolese_plate_pattern.match(corrected_text):
-                    return corrected_text, avg_confidence / 100.0
-                
-                # Retourner le texte nettoyé même s'il ne correspond pas au format
-                if cleaned_text:
-                    return cleaned_text, avg_confidence / 100.0
+            # Trier par position X (gauche à droite)
+            detections.sort(key=lambda d: d['x_center'])
+            
+            # Construire le texte
+            if not detections:
+                return "", 0.0
+            
+            text = ''.join([d['char'] for d in detections])
+            avg_confidence = sum([d['confidence'] for d in detections]) / len(detections)
+            
+            # Nettoyer et post-traiter
+            cleaned_text = self.clean_and_normalize_text(text)
+            
+            # Supprimer le préfixe 'CGO' si présent
+            if cleaned_text.startswith('CGO'):
+                cleaned_text = cleaned_text[3:]
+            
+            corrected_text = self.post_process_ocr_output(cleaned_text)
+            
+            if self.congolese_plate_pattern.match(corrected_text):
+                return corrected_text, avg_confidence
+            
+            if corrected_text:
+                return corrected_text, avg_confidence
             
             return "", 0.0
             
         except Exception as e:
-            logger.error(f"Erreur lors de l'extraction OCR: {e}")
+            logger.error(f"Erreur lors de l'extraction OCR YOLO: {e}")
             return "", 0.0
-
 
     def extract_text(self, plate_img):
-        """
-        Fonction principale d'extraction de texte selon le processus simplifié :
-        1. Conversion en niveaux de gris
-        2. Conversion en binaire  
-        3. Extraction des caractères avec OCR
-        """
-        try:
-            return self.extract_text_simple(plate_img)
-        except Exception as e:
-            logger.error(f"Erreur lors de l'extraction OCR: {e}")
-            return "", 0.0
-
-    def extract_congolese_format(self, text):
-        match = self.congolese_plate_pattern.match(text)
-        if match:
-            return match.group(0)
-        return ""
+        return self.extract_text_with_yolo_ocr(plate_img)
 
     def post_process_ocr_output(self, text):
         """
-        Fonction pour post-traiter le texte OCR selon le format congolais 0000AA00.
-        Applique les corrections de caractères selon leur position attendue.
+        Correction des erreurs selon le format 0000AA00 (inclut les corrections Z/3 et H/4).
         """
-        # Nettoyer le texte d'abord
         text = re.sub(r'[^A-Z0-9]', '', text.upper())
         
-        # Si le texte fait exactement 8 caractères, appliquer les corrections par position
-        if len(text) == 8:
-            corrected_text = ""
-            
-            for i, char in enumerate(text):
-                if i < 4:  # Positions 0-3: doivent être des chiffres
-                    if char.isdigit():
-                        corrected_text += char
-                    else:
-                        # Convertir les lettres en chiffres pour les 4 premières positions
-                        if char == 'O':
-                            corrected_text += '0'
-                        elif char == 'I' or char == 'L':
-                            corrected_text += '1'
-                        elif char == 'Z':
-                            corrected_text += '2'
-                        elif char == 'S':
-                            corrected_text += '5'
-                        elif char == 'G':
-                            corrected_text += '6'
-                        elif char == 'B':
-                            corrected_text += '8'
-                        else:
-                            corrected_text += char  # Garder le caractère original si pas de règle
-                            
-                elif i < 6:  # Positions 4-5: doivent être des lettres
-                    if char.isalpha():
-                        corrected_text += char
-                    else:
-                        # Convertir les chiffres en lettres pour les positions 4-5
-                        if char == '0':
-                            corrected_text += 'O'
-                        elif char == '1':
-                            corrected_text += 'I'
-                        elif char == '2':
-                            corrected_text += 'Z'
-                        elif char == '5':
-                            corrected_text += 'S'
-                        elif char == '6':
-                            corrected_text += 'G'
-                        elif char == '8':
-                            corrected_text += 'B'
-                        else:
-                            corrected_text += char  # Garder le caractère original si pas de règle
-                            
-                else:  # Positions 6-7: doivent être des chiffres
-                    if char.isdigit():
-                        corrected_text += char
-                    else:
-                        # Convertir les lettres en chiffres pour les 2 dernières positions
-                        if char == 'O':
-                            corrected_text += '0'
-                        elif char == 'I' or char == 'L':
-                            corrected_text += '1'
-                        elif char == 'Z':
-                            corrected_text += '2'
-                        elif char == 'S':
-                            corrected_text += '5'
-                        elif char == 'G':
-                            corrected_text += '6'
-                        elif char == 'B':
-                            corrected_text += '8'
-                        else:
-                            corrected_text += char  # Garder le caractère original si pas de règle
-            
-            # Vérifier si le texte corrigé correspond au format
-            if self.congolese_plate_pattern.match(corrected_text):
-                return corrected_text
-        
-        # Si le texte ne fait pas 8 caractères, essayer de reconstruire le format
-        # Extraire tous les chiffres et lettres
-        digits = re.findall(r'\d', text)
-        letters = re.findall(r'[A-Z]', text)
-
-        # Essayer de former le pattern 4 chiffres + 2 lettres + 2 chiffres
-        if len(digits) >= 6 and len(letters) >= 2:
-            potential_plate = f"{''.join(digits[:4])}{''.join(letters[:2])}{''.join(digits[4:6])}"
-            if self.congolese_plate_pattern.match(potential_plate):
-                return potential_plate
-        
-        # Vérifier si le format est déjà correct après nettoyage
+        # 1. Tenter l'extraction du pattern strict
         match_segments = re.search(r'(\d{4})([A-Z]{2})(\d{2})', text)
         if match_segments:
             return match_segments.group(0)
 
-        return text  # Retourner le texte original si aucune correction n'est possible
+        corrected_text = ""
+        # 2. Appliquer la correction positionnelle si la longueur est 8
+        if len(text) == 8:
+            for i, char in enumerate(text):
+                if i < 4 or i >= 6: # Positions Chiffres (0-3 et 6-7)
+                    if char.isdigit():
+                        corrected_text += char
+                    else:
+                        # Convertir les lettres en chiffres
+                        if char in ('O', 'D'): corrected_text += '0'
+                        elif char in ('I', 'L', 'T'): corrected_text += '1'
+                        elif char == 'Z': corrected_text += '3' # Z souvent 3 ou 2
+                        elif char == 'A': corrected_text += '4'
+                        elif char == 'H': corrected_text += '4' 
+                        elif char == 'S': corrected_text += '5'
+                        elif char == 'G': corrected_text += '6'
+                        elif char == 'B': corrected_text += '8'
+                        # Autres lettres sont ignorées
+                            
+                elif i < 6: # Positions Lettres (4-5)
+                    if char.isalpha():
+                        corrected_text += char
+                    else:
+                        # Convertir les chiffres en lettres
+                        if char == '0': corrected_text += 'O'
+                        elif char == '1': corrected_text += 'I' 
+                        elif char == '5': corrected_text += 'S'
+                        elif char == '8': corrected_text += 'B'
+                        elif char == '4': corrected_text += 'A'
+                        # Autres chiffres sont ignorés
+
+            if self.congolese_plate_pattern.match(corrected_text):
+                return corrected_text
+
+        
+        # 3. Logique d'extraction par segments (dernière tentative)
+        digits = re.findall(r'\d', text)
+        letters = re.findall(r'[A-Z]', text)
+
+        if len(digits) >= 6 and len(letters) >= 2:
+            potential_plate = f"{''.join(digits[:4])}{''.join(letters[:2])}{''.join(digits[4:6])}"
+            if self.congolese_plate_pattern.match(potential_plate):
+                return potential_plate
+
+        return text 
+
+    # ==============================================================================
+    # MÉTHODE PRINCIPALE DE TRAITEMENT
+    # ==============================================================================
 
     def process_detection(self, image_path):
+        """Fonction principale pour détecter les véhicules et extraire les plaques."""
         image = cv2.imread(image_path)
         if image is None:
             logger.error(f"Impossible de charger l'image: {image_path}")
@@ -297,9 +282,8 @@ class CarDetector:
             cv2.putText(result_image, f'Vehicle {i+1}', (x1, y1-10),
                         cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
             
-            # Augmenter la marge pour capturer la totalité de la plaque,
-            # surtout si le modèle YOLO la coupe un peu.
-            margin = 20 # Marge augmentée pour les plaques (à ajuster)
+            # Marge augmentée pour la région du véhicule
+            margin = 20 
             v_x1 = max(0, x1 - margin)
             v_y1 = max(0, y1 - margin)
             v_x2 = min(image.shape[1], x2 + margin)
@@ -317,15 +301,12 @@ class CarDetector:
             for j, plate in enumerate(plates):
                 px1, py1, px2, py2 = plate['bbox']
 
-                abs_x1 = v_x1 + px1
-                abs_y1 = v_y1 + py1
-                abs_x2 = v_x1 + px2
-                abs_y2 = v_y1 + py2
-                
-                abs_x1 = max(0, abs_x1)
-                abs_y1 = max(0, abs_y1)
-                abs_x2 = min(image.shape[1], abs_x2)
-                abs_y2 = min(image.shape[0], abs_y2)
+                # Marge de 5 pixels ajoutée pour la plaque elle-même
+                plate_margin = 5  
+                abs_x1 = max(0, v_x1 + px1 - plate_margin)
+                abs_y1 = max(0, v_y1 + py1 - plate_margin)
+                abs_x2 = min(image.shape[1], v_x1 + px2 + plate_margin)
+                abs_y2 = min(image.shape[0], v_y1 + py2 + plate_margin)
 
                 if abs_x2 <= abs_x1 or abs_y2 <= abs_y1:
                     logger.warning(f"Coordonnées de la plaque {j+1} du véhicule {i+1} invalides, skip.")
