@@ -1,14 +1,173 @@
-// Version 3.0 - Système de détection et extraction de plaques (séparé de la vérification)
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Detection JS v3.0 loaded (séparé de la vérification)');
+// Version 5.0 - Système de détection optimisé et refactorisé
+// Amélioration de la structure du code et suppression des duplications
+
+// ===== CONSTANTES =====
+const SELECTORS = {
+    dropArea: '#dropArea',
+    mediaInput: '#mediaInput',
+    preview: '#preview',
+    uploadForm: '#uploadForm',
+    resultsSection: '#resultsSection',
+    detectionResults: '#detectionResults',
+    savePlatesBtn: '#savePlatesBtn',
+    manualSelectionArea: '#manualSelectionArea',
+    manualPlateResults: '#manualPlateResults',
+    permanentVerificationSection: '#permanentVerificationSection'
+};
+
+const API_ENDPOINTS = {
+    saveCorrections: '/detection/save-corrected-plates/',
+    extractManual: '/detection/extract-manual-plate/'
+};
+
+const CONFIG = {
+    minSelectionSize: 10,
+    alertDuration: 5000,
+    previewMaxHeight: 300
+};
+
+// ===== FONCTIONS UTILITAIRES =====
+
+/**
+ * Récupère le token CSRF depuis le DOM
+ */
+function getCsrfToken() {
+    return document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+}
+
+/**
+ * Affiche un message avec le système de toasts ou fallback sur alert
+ */
+function showMessage(message, type = 'info') {
+    const toastFunctions = {
+        success: window.showSuccess,
+        error: window.showError,
+        warning: window.showWarning,
+        info: window.showInfo
+    };
     
-    // Test de fonctionnement des événements
-    console.log('DOM chargé, vérification des éléments...');
+    const toastFn = toastFunctions[type];
+    if (toastFn) {
+        toastFn(message);
+    } else {
+        alert(message);
+    }
+}
+
+/**
+ * Désactive un bouton et affiche un spinner de chargement
+ */
+function setButtonLoading(button, isLoading, loadingText = 'Traitement...') {
+    if (!button) return null;
+    
+    if (isLoading) {
+        const originalText = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span>${loadingText}`;
+        return originalText;
+    } else {
+        button.disabled = false;
+    }
+    return null;
+}
+
+/**
+ * Génère le HTML pour une carte de plaque détectée
+ */
+function generatePlateCardHTML(plate, index) {
+    return `
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <img src="/${plate.plate_image}" class="card-img-top" style="height: 120px; object-fit: contain; background: #f8f9fa;">
+                <div class="card-body text-center">
+                    <h6 class="card-title">Plaque #${index + 1}</h6>
+                    <div class="mb-3">
+                        <label class="form-label fw-bold text-success">✏️ Texte modifiable :</label>
+                        <input type="text" 
+                               class="form-control form-control-lg text-center fw-bold plate-text-input" 
+                               data-plate-id="${plate.plate_id}" 
+                               value="${plate.plate_text}" 
+                               placeholder="Cliquez pour modifier le texte"
+                               style="font-size: 1.2em; color: #0d6efd; border: 2px solid #28a745; background-color: #f8fff9;"
+                               title="Vous pouvez toujours modifier ce texte, même s'il est correct">
+                    </div>
+                    <small class="text-muted">Confiance: ${plate.confidence} | 
+                        <span class="text-success">✓ Toujours modifiable</span>
+                    </small>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+/**
+ * Génère le HTML pour l'affichage des correspondances véhicule/propriétaire
+ */
+function generateMatchesHTML(matches) {
+    if (!Array.isArray(matches) || matches.length === 0) return '';
+    
+    let html = `
+        <div class="card shadow-sm mt-3">
+            <div class="card-header bg-dark text-white">
+                <i class="fas fa-car me-2"></i>Résultats de la recherche véhicule / propriétaire
+            </div>
+            <div class="card-body">
+                <div class="row">
+    `;
+    
+    matches.forEach(match => {
+        const badgeClass = match.found ? 'bg-success' : 'bg-danger';
+        const borderClass = match.found ? 'border-success' : 'border-danger';
+        const statusText = match.found ? 'TROUVÉ' : 'NON TROUVÉ';
+        const plate = (match.normalized_plate || match.query_plate || '').toUpperCase();
+        
+        html += `
+            <div class="col-md-6 mb-3">
+                <div class="border rounded p-3 h-100 ${borderClass}">
+                    <h6 class="mb-2">
+                        <span class="badge ${badgeClass} me-2">${statusText}</span>
+                        Plaque: <span class="fw-bold">${plate}</span>
+                    </h6>
+        `;
+        
+        if (match.found) {
+            const ownerName = [match.owner.first_name, match.owner.last_name].filter(Boolean).join(' ') || match.owner.username;
+            const stolenBadge = match.vehicle.is_stolen 
+                ? '<span class="badge bg-danger">Déclaré volé</span>' 
+                : '<span class="badge bg-success">Normal</span>';
+            
+            html += `
+                <div class="mb-2">
+                    <div class="small text-muted">Véhicule</div>
+                    <div class="fw-semibold">${match.vehicle.brand || ''} ${match.vehicle.model || ''}</div>
+                    <div>Couleur: ${match.vehicle.color || '—'}</div>
+                    <div>Année: ${match.vehicle.year ?? '—'}</div>
+                    <div>Statut: ${stolenBadge}</div>
+                </div>
+                <div>
+                    <div class="small text-muted">Propriétaire</div>
+                    <div class="fw-semibold">${ownerName}</div>
+                    <div class="text-muted">${match.owner.email || ''}</div>
+                </div>
+            `;
+        } else {
+            html += `<div class="text-muted">${match.message || 'Aucun véhicule correspondant trouvé.'}</div>`;
+        }
+        
+        html += `</div></div>`;
+    });
+    
+    html += `</div></div></div>`;
+    return html;
+}
+
+// ===== CODE PRINCIPAL =====
+
+document.addEventListener('DOMContentLoaded', function() {
     
     // Délégation d'événements globale pour le bouton sauvegarde
     document.addEventListener('click', function(e) {
         if (e.target && e.target.id === 'savePlatesBtn') {
-            console.log('Clic sur savePlatesBtn capturé par délégation globale');
             e.preventDefault();
             e.stopPropagation();
             savePlatesOnly();
@@ -105,7 +264,6 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => response.json())
         .then(data => {
-            console.log('Données reçues:', data);
             if (data.success) {
                 displayResults(data);
             } else {
@@ -113,7 +271,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
-            console.error('Erreur:', error);
             if (window.showError) {
                 window.showError('Erreur: ' + error.message);
             } else {
@@ -126,10 +283,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // NOUVELLE FONCTION D'AFFICHAGE DES RÉSULTATS
+    // Fonction d'affichage des résultats
     function displayResults(data) {
-        console.log('Affichage des résultats:', data);
-        
         // Stocker les données pour la sauvegarde ultérieure
         window.lastDetectionData = data;
         const resultsDiv = document.getElementById('detectionResults');
@@ -152,8 +307,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         // PLAQUES AVEC CHAMPS ÉDITABLES
-        console.log('Vérification des plaques:', data.plates, 'Longueur:', data.plates ? data.plates.length : 'undefined');
-        console.log('plates_detected:', data.plates_detected);
         
         // Vérifier si des plaques ont été détectées - SEULEMENT par le tableau
         if (data.plates && data.plates.length > 0) {
@@ -213,14 +366,11 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => {
                 const saveBtn = document.getElementById('savePlatesBtn');
                 if (saveBtn) {
-                    console.log('Bouton savePlatesBtn trouvé');
                     saveBtn.addEventListener('click', function(e) {
-                        console.log('Clic sur savePlatesBtn détecté');
                         e.preventDefault();
                         e.stopPropagation();
                         savePlatesOnly();
                     });
-                    console.log('Événement attaché au bouton savePlatesBtn');
                 }
             }, 200);
             
@@ -244,14 +394,11 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => {
             const manualBtn = document.getElementById('enableManualSelection');
             if (manualBtn) {
-                console.log('Bouton enableManualSelection trouvé');
                 manualBtn.addEventListener('click', function(e) {
-                    console.log('Clic sur enableManualSelection détecté');
                     e.preventDefault();
                     e.stopPropagation();
                     enableManualSelection();
                 });
-                console.log('Événement attaché au bouton enableManualSelection');
             }
         }, 200);
         
@@ -271,10 +418,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Sauvegarde des corrections
     function saveCorrectedPlates() {
-        console.log('Fonction saveCorrectedPlates appelée');
-        
         const inputs = document.querySelectorAll('.plate-text-input');
-        console.log('Inputs trouvés:', inputs.length);
         
         const plates = Array.from(inputs).map(input => ({
             plate_id: input.dataset.plateId,
@@ -283,24 +427,18 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Plaques à sauvegarder:', plates);
         
         const saveBtn = document.getElementById('savePlatesBtn');
-        if (!saveBtn) {
-            console.error('Bouton savePlatesBtn non trouvé dans saveCorrectedPlates !');
-            return;
-        }
+        if (!saveBtn) return;
         
         const originalText = saveBtn.innerHTML;
         saveBtn.disabled = true;
         saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sauvegarde...';
         
-        // Récupération du token CSRF avec vérification
+        // Récupération du token CSRF
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
                          document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
                          '';
         
-        console.log('Token CSRF trouvé:', csrfToken ? 'Oui' : 'Non');
-        
         if (!csrfToken) {
-            console.error('Token CSRF non trouvé !');
             if (window.showError) {
                 window.showError('Erreur: Token CSRF manquant');
             } else {
@@ -311,7 +449,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
-        console.log('Envoi de la requête fetch...');
         fetch('/detection/save-corrected-plates/', {
             method: 'POST',
             headers: {
@@ -400,7 +537,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         })
         .catch(error => {
-            console.error('Erreur dans saveCorrectedPlates:', error);
             if (window.showError) {
                 window.showError('Erreur de sauvegarde: ' + error.message);
             } else {
@@ -415,10 +551,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Fonction pour sauvegarder les plaques corrigées
     function savePlatesOnly() {
-        console.log('Fonction savePlatesOnly appelée');
-        
         const inputs = document.querySelectorAll('.plate-text-input');
-        console.log('Inputs trouvés:', inputs.length);
         
         if (inputs.length === 0) {
             if (window.showWarning) {
@@ -433,13 +566,9 @@ document.addEventListener('DOMContentLoaded', function() {
             plate_id: input.dataset.plateId,
             corrected_text: input.value.trim()
         }));
-        console.log('Plaques à sauvegarder:', plates);
         
         const saveBtn = document.getElementById('savePlatesBtn');
-        if (!saveBtn) {
-            console.error('Bouton savePlatesBtn non trouvé !');
-            return;
-        }
+        if (!saveBtn) return;
         
         const originalText = saveBtn.innerHTML;
         saveBtn.disabled = true;
@@ -450,10 +579,7 @@ document.addEventListener('DOMContentLoaded', function() {
                          document.querySelector('input[name="csrfmiddlewaretoken"]')?.value ||
                          '';
         
-        console.log('Token CSRF trouvé:', csrfToken ? 'Oui' : 'Non');
-        
         if (!csrfToken) {
-            console.error('Token CSRF non trouvé !');
             if (window.showError) {
                 window.showError('Erreur: Token CSRF manquant');
             } else {
@@ -470,15 +596,10 @@ document.addEventListener('DOMContentLoaded', function() {
             originalImage = window.lastDetectionData.original_image;
         }
         
-        console.log('Image originale:', originalImage);
-        
-        // Préparer les données à envoyer
         const dataToSend = {
             plates: plates,
             original_image: originalImage
         };
-        
-        console.log('Données à envoyer:', dataToSend);
         
         // Envoi de la requête
         fetch('/detection/save-corrected-plates/', {
@@ -569,14 +690,9 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Fonction pour afficher la section de vérification permanente
     function showPermanentVerificationSection() {
-        console.log('Affichage de la section de vérification permanente');
-        
         const permanentSection = document.getElementById('permanentVerificationSection');
         if (permanentSection) {
             permanentSection.style.display = 'block';
-            console.log('✅ Section de vérification permanente affichée');
-        } else {
-            console.error('❌ Section de vérification permanente non trouvée');
         }
     }
 });
@@ -611,23 +727,37 @@ function enableManualSelection() {
         manualArea.style.display = 'block';
     }
     
-    // Changer le curseur et ajouter les événements
+    // Changer le curseur et ajouter les classes CSS pour la sélection
     currentImage.style.cursor = 'crosshair';
+    currentImage.classList.add('manual-selection-image');
+    
+    // Événements souris (desktop)
     currentImage.addEventListener('mousedown', startSelection);
     currentImage.addEventListener('mousemove', updateSelection);
     currentImage.addEventListener('mouseup', endSelection);
+    
+    // Événements tactiles (mobile)
+    currentImage.addEventListener('touchstart', startSelection, { passive: false });
+    currentImage.addEventListener('touchmove', updateSelection, { passive: false });
+    currentImage.addEventListener('touchend', endSelection, { passive: false });
     
     // Désactiver le bouton
     const manualBtn = document.getElementById('enableManualSelection');
     if (manualBtn) {
         manualBtn.disabled = true;
-        manualBtn.innerHTML = '<i class="fas fa-crop me-2"></i>Sélection activée - Cliquez et glissez sur l\'image';
+        manualBtn.innerHTML = '<i class="fas fa-crop me-2"></i>Sélection activée - Cliquez/Touchez et glissez sur l\'image';
     }
     
+    // Adapter le message selon le type d'appareil
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const message = isMobile 
+        ? 'Sélection manuelle activée ! Touchez et glissez votre doigt sur l\'image pour sélectionner une plaque.'
+        : 'Sélection manuelle activée ! Cliquez et glissez sur l\'image pour sélectionner une plaque.';
+    
     if (window.showInfo) {
-        window.showInfo('Sélection manuelle activée ! Cliquez et glissez sur l\'image pour sélectionner une plaque.');
+        window.showInfo(message);
     } else {
-        alert('Sélection manuelle activée ! Cliquez et glissez sur l\'image pour sélectionner une plaque.');
+        alert(message);
     }
 }
 
@@ -648,19 +778,34 @@ function startSelection(e) {
     const rect = currentImage.getBoundingClientRect();
     const parentRect = parent.getBoundingClientRect();
     
+    // Gérer les événements tactiles et souris
+    let clientX, clientY;
+    if (e.type === 'touchstart') {
+        const touch = e.touches[0];
+        clientX = touch.clientX;
+        clientY = touch.clientY;
+    } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+    }
+    
     // Calculer les coordonnées relatives au conteneur parent
-    startX = e.clientX - rect.left;
-    startY = e.clientY - rect.top;
+    startX = clientX - rect.left;
+    startY = clientY - rect.top;
     
     console.log('Start selection:', { startX, startY });
     
     // Créer la boîte de sélection
     selectionBox = document.createElement('div');
+    selectionBox.className = 'manual-selection-box';
     selectionBox.style.position = 'absolute';
     selectionBox.style.border = '2px dashed #007bff';
     selectionBox.style.backgroundColor = 'rgba(0, 123, 255, 0.1)';
     selectionBox.style.pointerEvents = 'none';
     selectionBox.style.zIndex = '1000';
+    
+    // Ajouter la classe 'selecting' à l'image
+    currentImage.classList.add('selecting');
     
     // Positionner relativement à l'image
     const imageRect = currentImage.getBoundingClientRect();
@@ -684,8 +829,20 @@ function updateSelection(e) {
     e.stopPropagation();
     
     const rect = currentImage.getBoundingClientRect();
-    endX = e.clientX - rect.left;
-    endY = e.clientY - rect.top;
+    
+    // Gérer les événements tactiles et souris
+    let clientX, clientY;
+    if (e.type === 'touchmove') {
+        const touch = e.touches[0];
+        clientX = touch.clientX;
+        clientY = touch.clientY;
+    } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+    }
+    
+    endX = clientX - rect.left;
+    endY = clientY - rect.top;
     
     // Calculer les dimensions de la sélection
     const left = Math.min(startX, endX);
@@ -721,8 +878,21 @@ function endSelection(e) {
     
     isSelecting = false;
     const rect = currentImage.getBoundingClientRect();
-    endX = e.clientX - rect.left;
-    endY = e.clientY - rect.top;
+    
+    // Gérer les événements tactiles et souris
+    let clientX, clientY;
+    if (e.type === 'touchend') {
+        // Pour touchend, utiliser changedTouches au lieu de touches
+        const touch = e.changedTouches[0];
+        clientX = touch.clientX;
+        clientY = touch.clientY;
+    } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+    }
+    
+    endX = clientX - rect.left;
+    endY = clientY - rect.top;
     
     // Debug des coordonnées de sélection
     console.log('Coordonnées de sélection:');
@@ -843,7 +1013,10 @@ function extractManualPlate(x1, y1, x2, y2) {
         selectionBox.remove();
         selectionBox = null;
     }
-    currentImage.style.cursor = 'default';
+    if (currentImage) {
+        currentImage.style.cursor = 'default';
+        currentImage.classList.remove('selecting');
+    }
     
     // Réactiver le bouton de sélection manuelle
     const manualBtn = document.getElementById('enableManualSelection');
@@ -984,13 +1157,19 @@ function resetManualSelection() {
     // Réinitialiser les variables
     isSelecting = false;
     
-    // Réinitialiser le curseur
+    // Réinitialiser le curseur et les classes CSS
     if (currentImage) {
         currentImage.style.cursor = 'default';
+        currentImage.classList.remove('manual-selection-image', 'selecting');
         // Supprimer les anciens événements pour éviter les doublons
+        // Événements souris
         currentImage.removeEventListener('mousedown', startSelection);
         currentImage.removeEventListener('mousemove', updateSelection);
         currentImage.removeEventListener('mouseup', endSelection);
+        // Événements tactiles
+        currentImage.removeEventListener('touchstart', startSelection);
+        currentImage.removeEventListener('touchmove', updateSelection);
+        currentImage.removeEventListener('touchend', endSelection);
     }
     
     if (window.showInfo) {

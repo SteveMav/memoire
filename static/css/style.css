@@ -77,6 +77,43 @@ h1, h2, h3, h4, h5, h6 {
     color: var(--text-light) !important;
 }
 
+/* Styles pour la sélection manuelle de plaques */
+.manual-selection-image {
+    touch-action: none; /* Désactive le zoom et le scroll pendant la sélection sur mobile */
+    user-select: none; /* Empêche la sélection de texte */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+}
+
+.manual-selection-image.selecting {
+    cursor: crosshair;
+}
+
+/* Amélioration de la visibilité de la box de sélection sur mobile */
+@media (max-width: 768px) {
+    .manual-selection-box {
+        border-width: 3px !important; /* Bordure plus épaisse sur mobile */
+        box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
+    }
+    
+    /* Augmenter la zone tactile des images sur mobile */
+    #detectionResults img {
+        max-width: 100%;
+        height: auto;
+        margin: 10px 0;
+    }
+    
+    /* Message d'aide pour mobile */
+    .mobile-help {
+        background-color: #e3f2fd;
+        padding: 10px;
+        border-radius: 5px;
+        margin: 10px 0;
+        font-size: 0.9em;
+    }
+}
+
 /* Styles pour la zone de dépôt */
 .upload-area {
     border: 2px dashed var(--primary-color);
@@ -247,54 +284,54 @@ main {
 
 /* Footer */
 .footer {
-    background-color: var(--dark-color);
-    color: white;
-    padding: 40px 0 20px;
-    margin-top: 60px;
+    background-color: #2c3e50 !important;
+    color: white !important;
+    padding: 15px 0;
+    margin-top: auto;
+    box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
 }
 
-.footer h5 {
-    color: var(--light-color);
-    margin-bottom: 20px;
-    font-weight: 600;
+.footer p {
+    font-size: 0.95rem;
+    color: white !important;
 }
 
-.footer-links {
-    list-style: none;
-    padding: 0;
-}
-
-.footer-links li {
-    margin-bottom: 10px;
-}
-
-.footer-links a {
-    color: #bdc3c7;
+.footer .social-links-simple a {
+    color: white !important;
     text-decoration: none;
-    transition: color 0.3s ease;
-}
-
-.footer-links a:hover {
-    color: white;
-    text-decoration: none;
-}
-
-.social-links a {
-    display: inline-block;
-    width: 40px;
-    height: 40px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
-    text-align: center;
-    line-height: 40px;
-    color: white;
-    margin-right: 10px;
     transition: all 0.3s ease;
+    font-size: 1.1rem;
 }
 
-.social-links a:hover {
-    background: var(--secondary-color);
-    transform: translateY(-3px);
+.footer .social-links-simple a:hover {
+    color: #3498db !important;
+    transform: translateY(-2px);
+}
+
+/* Footer Simple (fond blanc) */
+.footer-simple {
+    background-color: white;
+    color: #333;
+    padding: 15px 0;
+    margin-top: auto;
+    box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+}
+
+.footer-simple p {
+    font-size: 0.95rem;
+    color: #333;
+}
+
+.footer-simple .social-links-simple a {
+    color: #2c3e50;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    font-size: 1.1rem;
+}
+
+.footer-simple .social-links-simple a:hover {
+    color: #3498db;
+    transform: translateY(-2px);
 }
 
 /* Buttons */

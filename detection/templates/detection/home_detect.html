@@ -94,12 +94,18 @@
                                 <div class="alert alert-info mt-4">
                                     <h6><i class="fas fa-hand-pointer me-2"></i>Sélection manuelle</h6>
                                     <p class="mb-3">Vous pouvez sélectionner manuellement une région de plaque dans l'image ci-dessus.</p>
+                                    <p class="small mb-3">
+                                        <i class="fas fa-mobile-alt me-1"></i>
+                                        <strong>Sur mobile :</strong> Touchez et glissez votre doigt pour tracer un rectangle autour de la plaque.<br>
+                                        <i class="fas fa-desktop me-1"></i>
+                                        <strong>Sur ordinateur :</strong> Cliquez et glissez la souris pour sélectionner la plaque.
+                                    </p>
                                     <button type="button" class="btn btn-primary" id="enableManualSelection">
                                         <i class="fas fa-crop me-2"></i>Sélectionner une plaque manuellement
                                     </button>
                                 </div>
                                 <div id="manualSelectionArea" style="display: none;">
-                                    <h6 class="mt-4">Cliquez et glissez sur l'image pour sélectionner la plaque :</h6>
+                                    <h6 class="mt-4">Touchez/Cliquez et glissez sur l'image pour sélectionner la plaque :</h6>
                                     <div id="manualPlateResults"></div>
                                 </div>
                                 
@@ -133,19 +139,5 @@
     <!-- Toast System -->
     <script src="{% static 'js/toast-system.js' %}"></script>
     
-    <!-- Script de vérification -->
-    <script>
-        console.log('Système de détection et vérification chargé');
-        
-        // Vérification du chargement des modules
-        setTimeout(() => {
-            if (typeof verifyVehicles === 'function') {
-                console.log('✅ Module de vérification chargé');
-            } else {
-                console.error('❌ Module de vérification non disponible');
-            }
-        }, 500);
-        
-    </script>
 </body>
 </html>

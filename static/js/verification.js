@@ -1,10 +1,8 @@
 // Version 1.0 - Système de vérification des véhicules et propriétaires
-console.log('Verification JS v1.0 loaded');
 
 // Délégation d'événements globale pour le bouton de vérification
 document.addEventListener('click', function(e) {
     if (e.target && e.target.id === 'verifyPlatesBtn') {
-        console.log('Clic sur verifyPlatesBtn capturé par délégation globale (verification.js)');
         e.preventDefault();
         e.stopPropagation();
         verifyVehicles();
@@ -13,61 +11,43 @@ document.addEventListener('click', function(e) {
 
 // Fonction de test pour debug
 window.testManualPlateDetection = function() {
-    console.log('=== TEST MANUEL ===');
-    
-    const manualArea = document.getElementById('manualSelectionArea');
-    console.log('Zone manuelle visible:', manualArea ? manualArea.style.display : 'Zone non trouvée');
     
     const manualResults = document.getElementById('manualPlateResults');
-    console.log('Zone résultats manuels:', !!manualResults);
     if (manualResults) {
-        console.log('Contenu zone résultats:', manualResults.innerHTML.length > 0);
         
         // Chercher les inputs dans cette zone
         const inputs = manualResults.querySelectorAll('input[type="text"]');
-        console.log('Inputs trouvés dans manualPlateResults:', inputs.length);
         inputs.forEach((input, index) => {
-            console.log(`  Input ${index}: id="${input.id}", value="${input.value}", visible=${input.offsetParent !== null}`);
         });
     }
     
     // Test direct de l'élément manualPlateText
     const manualInput = document.getElementById('manualPlateText');
-    console.log('Élément #manualPlateText trouvé directement:', !!manualInput);
     if (manualInput) {
-        console.log('  Valeur:', manualInput.value);
-        console.log('  Parent:', manualInput.parentElement?.id || 'pas d\'ID parent');
     }
     
-    console.log('=== FIN TEST ===');
 };
 
 // Fonction principale pour vérifier les véhicules
 function verifyVehicles() {
-    console.log('Fonction verifyVehicles appelée');
     
     // Appeler le test de debug
     window.testManualPlateDetection();
     
     // Récupérer les plaques détectées automatiquement
     const autoInputs = document.querySelectorAll('.plate-text-input');
-    console.log('Plaques automatiques trouvées:', autoInputs.length);
     
     // Récupérer les plaques détectées manuellement dans la zone manualPlateResults
     const manualResultsArea = document.getElementById('manualPlateResults');
-    console.log('Zone manualPlateResults trouvée:', manualResultsArea ? 'Oui' : 'Non');
     
     let manualInputs = [];
     if (manualResultsArea) {
         // Chercher tous les inputs dans la zone des résultats manuels
         manualInputs = manualResultsArea.querySelectorAll('input[type="text"]');
-        console.log('Inputs manuels trouvés dans manualPlateResults:', manualInputs.length);
         
         manualInputs.forEach((input, index) => {
-            console.log(`Input manuel ${index}: id="${input.id}", value="${input.value}"`);
         });
     } else {
-        console.log('Zone manualPlateResults non trouvée');
     }
     
     const plates = [];
@@ -92,8 +72,6 @@ function verifyVehicles() {
         }
     });
     
-    console.log('Total des plaques à vérifier:', plates.length);
-    console.log('Détail des plaques:', plates);
     
     if (plates.length === 0) {
         if (window.showWarning) {
@@ -141,11 +119,9 @@ function verifyVehicles() {
         body: JSON.stringify({ plates })
     })
     .then(response => {
-        console.log('Réponse vérification reçue:', response.status);
         return response.json();
     })
     .then(data => {
-        console.log('Données reçues:', data);
         if (data.success) {
             // Ajouter l'information de source aux résultats
             if (data.matches) {
@@ -287,15 +263,8 @@ function displayVehicleVerificationResults(matches) {
 
 // Fonction de test pour le bouton vérifier
 window.testVerifyButton = function() {
-    console.log('Test du bouton de vérification...');
     const verifyBtn = document.getElementById('verifyPlatesBtn');
     if (verifyBtn) {
-        console.log('Bouton vérifier trouvé !');
-        console.log('- ID:', verifyBtn.id);
-        console.log('- Classes:', verifyBtn.className);
-        console.log('- Disabled:', verifyBtn.disabled);
-        console.log('Simulation du clic...');
-        
         const clickEvent = new MouseEvent('click', {
             bubbles: true,
             cancelable: true,
@@ -303,13 +272,11 @@ window.testVerifyButton = function() {
         });
         verifyBtn.dispatchEvent(clickEvent);
     } else {
-        console.log('❌ Bouton vérifier non trouvé');
     }
 };
 
 // Fonction de test pour sauvegarde directe avec vérification
 window.testDirectVerify = function() {
-    console.log('Test de vérification directe...');
     
     // Récupération du token CSRF
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || 
@@ -333,7 +300,6 @@ window.testDirectVerify = function() {
         }]
     };
     
-    console.log('Envoi de données de test pour vérification:', testData);
     
     fetch('/detection/save-corrected-plates/', {
         method: 'POST',
@@ -344,11 +310,9 @@ window.testDirectVerify = function() {
         body: JSON.stringify(testData)
     })
     .then(response => {
-        console.log('Réponse test vérification:', response.status);
         return response.json();
     })
     .then(data => {
-        console.log('Données test vérification reçues:', data);
         if (data.matches) {
             displayVehicleVerificationResults(data.matches);
         }
@@ -386,7 +350,6 @@ function getCsrfToken() {
 // Fonction pour charger les infractions disponibles
 async function loadInfractions() {
     try {
-        console.log('🔄 Chargement des infractions...');
         const response = await fetch('/detection/get-infractions/', {
             method: 'GET',
             headers: {
@@ -395,7 +358,6 @@ async function loadInfractions() {
             }
         });
 
-        console.log('📡 Réponse reçue:', response.status, response.statusText);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -669,9 +631,6 @@ async function emettrAmende() {
             detection_id: currentVehicleForAmende.detection_id || null
         };
         
-        console.log('🚨 Données à envoyer pour l\'amende:', requestData);
-        console.log('🚗 Véhicule actuel:', currentVehicleForAmende);
-        console.log('🔑 Token CSRF:', getCsrfToken() ? 'Présent' : 'Manquant');
         
         const response = await fetch('/detection/emettre-amende/', {
             method: 'POST',
@@ -743,26 +702,7 @@ function addAmendeButtonToResult(vehicleElement, vehicle) {
     buttonContainer.appendChild(amendeBtn);
 }
 
-// Fonction de test pour vérifier le chargement des infractions
-window.testInfractions = async function() {
-    console.log('=== TEST MANUEL DES INFRACTIONS ===');
-    await loadInfractions();
-    console.log('Infractions en mémoire:', infractions.length);
-    if (infractions.length > 0) {
-        console.log('Exemples d\'infractions:');
-        infractions.slice(0, 3).forEach((inf, i) => {
-            console.log(`${i+1}. ${inf.code_article} - ${inf.description.substring(0, 50)}... (${inf.amende_moyenne} Z)`);
-        });
-    }
-    console.log('=== FIN TEST INFRACTIONS ===');
-};
+
 
 // Initialiser le système d'amendes au chargement de la page
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initialisation du système d\'amendes...');
-    loadInfractions();
-});
-
 // Force le rechargement du cache - Version avec support détection manuelle + amendes
-console.log('Verification JS loaded at:', new Date().toISOString());
-console.log('🔄 Version: Support détection manuelle + amendes v3.0 - Cache busted!');
