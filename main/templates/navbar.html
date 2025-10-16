@@ -32,9 +32,6 @@
                 <li class="nav-item">
                     <a class="nav-link {% if active_page == 'about' %}active{% endif %}" href="{% url 'about' %}">À propos</a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="">Contact</a>
-                </li>
                 {% if user.is_authenticated %}
                 <li class="nav-item">
                     <a class="nav-link" href="{% url 'accounts:logout' %}">Se deconnecter</a>
