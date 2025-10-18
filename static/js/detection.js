@@ -116,7 +116,7 @@ function generateMatchesHTML(matches) {
     `;
     
     matches.forEach(match => {
-        const badgeClass = match.found ? 'bg-success' : 'bg-danger';
+        const badgeClass = match.found ? 'bg-succes-changed' : 'bg-danger';
         const borderClass = match.found ? 'border-success' : 'border-danger';
         const statusText = match.found ? 'TROUVÉ' : 'NON TROUVÉ';
         const plate = (match.normalized_plate || match.query_plate || '').toUpperCase();
@@ -134,7 +134,7 @@ function generateMatchesHTML(matches) {
             const ownerName = [match.owner.first_name, match.owner.last_name].filter(Boolean).join(' ') || match.owner.username;
             const stolenBadge = match.vehicle.is_stolen 
                 ? '<span class="badge bg-danger">Déclaré volé</span>' 
-                : '<span class="badge bg-success">Normal</span>';
+                : '<span class="badge bg-succes-changed">Normal</span>';
             
             html += `
                 <div class="mb-2">
@@ -353,7 +353,7 @@ document.addEventListener('DOMContentLoaded', function() {
             platesHTML += `
                     </div>
                     <div class="text-center mt-4">
-                        <button type="button" class="btn btn-success btn-lg px-4" id="savePlatesBtn">
+                        <button type="button" class="btn btn-succes-changed btn-lg px-4" id="savePlatesBtn">
                             <i class="fas fa-save me-2"></i>Sauvegarder les corrections
                         </button>
                     </div>
@@ -493,7 +493,7 @@ document.addEventListener('DOMContentLoaded', function() {
                           <div class="col-md-6 mb-3">
                             <div class="border rounded p-3 h-100 ${m.found ? 'border-success' : 'border-danger'}">
                               <h6 class="mb-2">
-                                <span class="badge ${m.found ? 'bg-success' : 'bg-danger'} me-2">${m.found ? 'TROUVÉ' : 'NON TROUVÉ'}</span>
+                                <span class="badge ${m.found ? 'bg-succes-changed' : 'bg-danger'} me-2">${m.found ? 'TROUVÉ' : 'NON TROUVÉ'}</span>
                                 Plaque: <span class="fw-bold">${(m.normalized_plate || m.query_plate || '').toUpperCase()}</span>
                               </h6>
                               ${m.found ? `
@@ -503,7 +503,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                   <div>Couleur: ${m.vehicle.color || '—'}</div>
                                   <div>Année: ${m.vehicle.year ?? '—'}</div>
                                   <div>
-                                    Statut: ${m.vehicle.is_stolen ? '<span class="badge bg-danger">Déclaré volé</span>' : '<span class="badge bg-success">Normal</span>'}
+                                    Statut: ${m.vehicle.is_stolen ? '<span class="badge bg-danger">Déclaré volé</span>' : '<span class="badge bg-succes-changed">Normal</span>'}
                                   </div>
                                 </div>
                                 <div>
@@ -1032,7 +1032,7 @@ function displayManualPlateResult(data) {
     
     resultsDiv.innerHTML = `
         <div class="card mt-3">
-            <div class="card-header bg-success text-white">
+            <div class="card-header bg-succes-changed text-white">
                 <h6 class="mb-0"><i class="fas fa-hand-pointer me-2"></i>Plaque extraite manuellement</h6>
             </div>
             <div class="card-body">
@@ -1053,7 +1053,7 @@ function displayManualPlateResult(data) {
                         <div class="mb-3">
                             <small class="text-muted">Confiance: ${Math.round(data.confidence * 100)}%</small>
                         </div>
-                        <button type="button" class="btn btn-success" onclick="saveManualPlate()">
+                        <button type="button" class="btn btn-succes-changed" onclick="saveManualPlate()">
                             <i class="fas fa-save me-2"></i>Sauvegarder cette plaque
                         </button>
                         <button type="button" class="btn btn-secondary ms-2" onclick="resetManualSelection()">

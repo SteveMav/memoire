@@ -167,8 +167,8 @@ function displayVehicleVerificationResults(matches) {
     container.className = 'mt-3';
     
     let html = `
-        <div class="card shadow-sm border-primary">
-          <div class="card-header bg-primary text-white">
+        <div class="card shadow-sm border-primary-changed">
+          <div class="card-header btn-primary-changed-changed text-white">
             <h5 class="mb-0"><i class="fas fa-search me-2"></i>Résultats de la vérification</h5>
           </div>
           <div class="card-body">
@@ -179,11 +179,11 @@ function displayVehicleVerificationResults(matches) {
         html += `
           <div class="col-md-6 mb-4">
             <div class="card h-100 ${match.found ? 'border-success' : 'border-danger'}">
-              <div class="card-header ${match.found ? 'bg-success' : 'bg-danger'} text-white">
+              <div class="card-header ${match.found ? 'bg-succes-changed' : 'bg-danger'} text-white">
                 <h6 class="mb-0">
                   <i class="fas ${match.found ? 'fa-check-circle' : 'fa-times-circle'} me-2"></i>
                   Plaque: <span class="fw-bold">${(match.normalized_plate || match.query_plate || '').toUpperCase()}</span>
-                  ${match.source ? `<span class="badge ${match.source === 'manual' ? 'bg-warning' : 'bg-info'} ms-2">
+                  ${match.source ? `<span class="badge ${match.source === 'manual' ? 'bg-warning-changed' : 'bg-info'} ms-2">
                     <i class="fas ${match.source === 'manual' ? 'fa-hand-pointer' : 'fa-magic'} me-1"></i>
                     ${match.source === 'manual' ? 'Manuelle' : 'Automatique'}
                   </span>` : ''}
@@ -202,13 +202,13 @@ function displayVehicleVerificationResults(matches) {
                         <tr><td><strong>Statut:</strong></td><td>
                           ${match.vehicle.is_stolen ? 
                             '<span class="badge bg-danger"><i class="fas fa-exclamation-triangle me-1"></i>DÉCLARÉ VOLÉ</span>' : 
-                            '<span class="badge bg-success"><i class="fas fa-check me-1"></i>Normal</span>'
+                            '<span class="badge bg-succes-changed-succed"><i class="fas fa-check me-1"></i>Normal</span>'
                           }
                         </td></tr>
                       </table>
                     </div>
                     <div class="col-12">
-                      <h6 class="text-primary"><i class="fas fa-user me-2"></i>Propriétaire</h6>
+                      <h6 class="text-primary-changed"><i class="fas fa-user me-2"></i>Propriétaire</h6>
                       <table class="table table-sm">
                         <tr><td><strong>Nom:</strong></td><td>${[match.owner.first_name, match.owner.last_name].filter(Boolean).join(' ') || '—'}</td></tr>
                         <tr><td><strong>Username:</strong></td><td>${match.owner.username || '—'}</td></tr>
@@ -430,7 +430,7 @@ function createAmendeModal() {
                 <div class="modal-body">
                     <!-- Informations du véhicule -->
                     <div class="card mb-3">
-                        <div class="card-header bg-primary text-white">
+                        <div class="card-header btn-primary-changed-changed text-white">
                             <h6 class="mb-0"><i class="fas fa-car me-2"></i>Véhicule concerné</h6>
                         </div>
                         <div class="card-body">

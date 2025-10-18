@@ -1,16 +1,16 @@
 Styles généraux
 :root {
     --primary-color: #2c3e50;
-    --secondary-color: #3498db;
+    --secondary-color: #667e9c;
     --light-color: #ecf0f1;
-    --dark-color: #2c3e50;
+    --dark-color: #303e4d;
     --success-color: #2ecc71;
 }
 
 /* Variables de couleurs */
 :root {
     --primary-color: #2c3e50;
-    --secondary-color: #1a73e8;
+    --secondary-color: #667e9c;
     --light-color: #f8f9fa;
     --dark-color: #1a1a2e;
     --success-color: #28a745;
@@ -28,6 +28,35 @@ body {
     display: flex;
     flex-direction: column;
 }
+.text-primary-changed-changed {
+    color:  #737b86  !important;
+}
+.btn-primary-changed-changed {
+    background-color:  #e0e5eb  !important;
+}
+.bg-warning-changed {
+    background-color:  #e0e5eb  !important;
+}
+.bg-succes-changed {
+   
+    background-color:  #e0e5eb  !important;
+}
+.btn-primary-changed {
+    background-color:  #e0e5eb  !important;
+}
+.btn-warning-changed {
+    background-color:  #e0e5eb  !important;
+}
+.btn-succes-changed {
+    background-color:  #e0e5eb  !important;
+}
+.bg-succes-changed-succed {
+    background-color:  #7abd9e  !important;
+}
+.border-primary-changed {
+    border-color:  #e0e5eb  !important;
+}
+
 
 /* Styles pour la navbar */
 .navbar {
@@ -57,13 +86,13 @@ body {
     border-color: #1a2a3a;
 }
 
-.btn-success {
+.btn-succes-changed {
     background-color: var(--success-color);
     border-color: var(--success-color);
     color: var(--white) !important;
 }
 
-.btn-success:hover {
+.btn-succes-changed:hover {
     background-color: #218838;
     border-color: #1e7e34;
 }
@@ -176,7 +205,7 @@ h1, h2, h3, h4, h5, h6 {
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
-.btn-success {
+.btn-succes-changed {
     background-color: #198754;
     border: none;
     padding: 0.75rem;
@@ -184,7 +213,7 @@ h1, h2, h3, h4, h5, h6 {
     transition: all 0.3s ease;
 }
 
-.btn-success:hover {
+.btn-succes-changed:hover {
     background-color: #157347;
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);

@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', function() {
             html += `
                 <div class="row">
                     <div class="col-md-6">
-                        <h6 class="text-primary mb-3">
+                        <h6 class="text-primary-changed mb-3">
                             <i class="fas fa-car me-2"></i>
                             Informations du véhicule
                         </h6>
@@ -236,13 +236,13 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <div class="row">
                                     <div class="col-6">
                                         <strong>Plaque:</strong><br>
-                                        <span class="badge bg-primary fs-6">${vehicle.plate}</span>
+                                        <span class="badge btn-primary-changed-changed-changed-changed-changed fs-6">${vehicle.plate}</span>
                                     </div>
                                     <div class="col-6">
                                         <strong>Statut:</strong><br>
                                         ${vehicle.is_stolen ? 
                                             '<span class="badge bg-danger"><i class="fas fa-exclamation-triangle me-1"></i>VOLÉ</span>' : 
-                                            '<span class="badge bg-success">Normal</span>'
+                                            '<span class="badge bg-succes-changed">Normal</span>'
                                         }
                                     </div>
                                 </div>
@@ -274,7 +274,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="card border-success">
                             <div class="card-body">
                                 <div class="d-flex align-items-center mb-2">
-                                    <div class="bg-success rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                    <div class="bg-succes-changed rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
                                         <i class="fas fa-user text-white"></i>
                                     </div>
                                     <div>
@@ -329,7 +329,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <small>${detection.detection_date}</small>
                         </td>
                         <td>
-                            <strong class="text-primary">${detection.detected_plate}</strong>
+                            <strong class="text-primary-changed">${detection.detected_plate}</strong>
                         </td>
                         <td>
                             <div>
@@ -345,7 +345,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     '<span class="badge bg-info" title="Image"><i class="fas fa-image"></i></span>' : ''
                                 }
                                 ${detection.has_video ? 
-                                    '<span class="badge bg-warning" title="Vidéo"><i class="fas fa-video"></i></span>' : ''
+                                    '<span class="badge bg-warning-changed" title="Vidéo"><i class="fas fa-video"></i></span>' : ''
                                 }
                                 ${!detection.has_image && !detection.has_video ? 
                                     '<span class="text-muted">-</span>' : ''
@@ -387,7 +387,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="row mb-3">
                                 <div class="col-6">
                                     <strong>N° Amende:</strong><br>
-                                    <span class="badge bg-warning text-dark fs-6">${amende.numero_amende}</span>
+                                    <span class="badge bg-warning-changed text-dark fs-6">${amende.numero_amende}</span>
                                 </div>
                                 <div class="col-6">
                                     <strong>Statut:</strong><br>
@@ -434,7 +434,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 <!-- Informations du véhicule et propriétaire -->
                 <div class="col-md-6">
-                    <h6 class="text-primary mb-3">
+                    <h6 class="text-primary-changed mb-3">
                         <i class="fas fa-car me-2"></i>
                         Véhicule et propriétaire
                     </h6>
@@ -443,13 +443,13 @@ document.addEventListener('DOMContentLoaded', function() {
                             <div class="row mb-3">
                                 <div class="col-6">
                                     <strong>Plaque:</strong><br>
-                                    <span class="badge bg-primary fs-6">${amende.vehicle.plate}</span>
+                                    <span class="badge btn-primary-changed-changed fs-6">${amende.vehicle.plate}</span>
                                 </div>
                                 <div class="col-6">
                                     <strong>Statut véhicule:</strong><br>
                                     ${amende.vehicle.is_stolen ? 
                                         '<span class="badge bg-danger"><i class="fas fa-exclamation-triangle me-1"></i>VOLÉ</span>' : 
-                                        '<span class="badge bg-success">Normal</span>'
+                                        '<span class="badge bg-succes-changed">Normal</span>'
                                     }
                                 </div>
                             </div>
@@ -465,7 +465,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             </div>
                             <hr>
                             <div class="d-flex align-items-center mb-2">
-                                <div class="bg-success rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                                <div class="bg-succes-changed rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
                                     <i class="fas fa-user text-white"></i>
                                 </div>
                                 <div>
@@ -950,7 +950,7 @@ document.addEventListener('DOMContentLoaded', function() {
         codes.forEach(code => {
             const statusBadge = code.is_used 
                 ? '<span class="badge bg-danger">Utilisé</span>'
-                : '<span class="badge bg-success">Disponible</span>';
+                : '<span class="badge bg-succes-changed">Disponible</span>';
             
             const usedBy = code.used_by 
                 ? `<small>${code.used_by}<br><span class="text-muted">${code.used_at}</span></small>`
@@ -1101,7 +1101,7 @@ document.addEventListener('DOMContentLoaded', function() {
             vehicleInfoDiv.innerHTML = `
                 <div class="row">
                     <div class="col-md-6">
-                        <strong>Plaque:</strong> <span class="badge bg-primary fs-6">${currentVehicleData.plate}</span>
+                        <strong>Plaque:</strong> <span class="badge btn-primary-changed-changed fs-6">${currentVehicleData.plate}</span>
                     </div>
                     <div class="col-md-6">
                         <strong>Véhicule:</strong> ${currentVehicleData.brand} ${currentVehicleData.model}
@@ -1247,8 +1247,8 @@ function formatPlateNumber(input) {
 // Fonction utilitaire pour obtenir la classe CSS du badge de statut
 function getStatutBadgeClass(statut) {
     const classes = {
-        'EMISE': 'bg-warning text-dark',
-        'PAYEE': 'bg-success',
+        'EMISE': 'bg-warning-changed text-dark',
+        'PAYEE': 'bg-succes-changed',
         'CONTESTEE': 'bg-info',
         'ANNULEE': 'bg-secondary'
     };

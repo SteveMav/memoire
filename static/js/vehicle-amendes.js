@@ -320,7 +320,7 @@ function createAmendesTable(amendes) {
             <div class="col-md-4">
                 <div class="card bg-light">
                     <div class="card-body text-center">
-                        <i class="fas fa-file-invoice-dollar fa-2x text-primary mb-2"></i>
+                        <i class="fas fa-file-invoice-dollar fa-2x text-primary-changed mb-2"></i>
                         <h5>${amendes.length}</h5>
                         <p class="text-muted mb-0">Total amendes</p>
                     </div>
@@ -359,8 +359,8 @@ function createAmendesTable(amendes) {
  */
 function getStatutClass(statut) {
     const classes = {
-        'EMISE': 'bg-warning',
-        'PAYEE': 'bg-success',
+        'EMISE': 'bg-warning-changed',
+        'PAYEE': 'bg-succes-changed',
         'CONTESTEE': 'bg-info',
         'ANNULEE': 'bg-secondary'
     };
