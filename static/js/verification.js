@@ -349,6 +349,10 @@ function getCsrfToken() {
 
 // Fonction pour charger les infractions disponibles
 async function loadInfractions() {
+    console.log('🔄 Début du chargement des infractions...');
+    console.log('📍 URL: /detection/get-infractions/');
+    console.log('🔑 CSRF Token:', getCsrfToken() ? 'Présent' : 'Manquant');
+    
     try {
         const response = await fetch('/detection/get-infractions/', {
             method: 'GET',
@@ -358,6 +362,7 @@ async function loadInfractions() {
             }
         });
 
+        console.log('📡 Réponse HTTP:', response.status, response.statusText);
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -366,20 +371,25 @@ async function loadInfractions() {
         }
 
         const data = await response.json();
-        console.log('📦 Données reçues:', data);
+        console.log('📦 Données JSON reçues:', data);
         
         if (data.success) {
             infractions = data.infractions;
-            console.log('✅ Infractions chargées:', infractions.length);
+            console.log('✅ Infractions chargées avec succès:', infractions.length);
             if (infractions.length > 0) {
                 console.log('📋 Première infraction:', infractions[0]);
+                console.log('📋 Dernière infraction:', infractions[infractions.length - 1]);
+            } else {
+                console.warn('⚠️ Aucune infraction trouvée dans la base de données');
             }
             return true;
         } else {
+            console.error('❌ Réponse success=false:', data.error);
             throw new Error(data.error || 'Erreur lors du chargement des infractions');
         }
     } catch (error) {
-        console.error('Erreur chargement infractions:', error);
+        console.error('❌ Erreur complète chargement infractions:', error);
+        console.error('❌ Stack trace:', error.stack);
         if (window.showError) {
             window.showError('Erreur lors du chargement des infractions: ' + error.message);
         } else {
@@ -390,7 +400,9 @@ async function loadInfractions() {
 }
 
 // Fonction pour afficher le modal d'émission d'amende
-function showAmendeModal(vehicle) {
+// Exposée globalement pour être accessible depuis le HTML
+window.showAmendeModal = function(vehicle) {
+    console.log('🎯 showAmendeModal appelée avec:', vehicle);
     currentVehicleForAmende = vehicle;
     
     // Créer le modal s'il n'existe pas
@@ -525,8 +537,31 @@ function createAmendeModal() {
 
 // Fonction pour remplir le select des infractions
 function populateInfractionsSelect() {
+    console.log('📝 Remplissage du select des infractions...');
+    console.log('📊 Nombre d\'infractions disponibles:', infractions.length);
+    
     const select = document.getElementById('infractionSelect');
+    if (!select) {
+        console.error('❌ Element infractionSelect non trouvé!');
+        return;
+    }
+    
     select.innerHTML = '<option value="">Sélectionner une infraction...</option>';
+    
+    if (infractions.length === 0) {
+        console.warn('⚠️ Aucune infraction à afficher - Tentative de rechargement...');
+        // Recharger les infractions si elles ne sont pas disponibles
+        loadInfractions().then(success => {
+            if (success && infractions.length > 0) {
+                console.log('✅ Infractions rechargées, nouvelle tentative...');
+                populateInfractionsSelect();
+            } else {
+                console.error('❌ Impossible de charger les infractions');
+                select.innerHTML = '<option value="">Erreur: Aucune infraction disponible</option>';
+            }
+        });
+        return;
+    }
     
     // Grouper par catégorie
     const categories = {};
@@ -554,6 +589,9 @@ function populateInfractionsSelect() {
         
         select.appendChild(optgroup);
     });
+    
+    console.log('✅ Select rempli avec', Object.keys(categories).length, 'catégories');
+    console.log('✅ Total d\'options:', select.options.length - 1); // -1 pour l'option par défaut
 }
 
 // Fonction pour obtenir le nom d'affichage de la catégorie
@@ -705,4 +743,39 @@ function addAmendeButtonToResult(vehicleElement, vehicle) {
 
 
 // Initialiser le système d'amendes au chargement de la page
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🚀 Initialisation du système d\'amendes...');
+    loadInfractions().then(success => {
+        if (success) {
+            console.log('✅ Système d\'amendes prêt');
+        } else {
+            console.error('❌ Échec du chargement des infractions');
+        }
+    });
+});
+
 // Force le rechargement du cache - Version avec support détection manuelle + amendes
+console.log('Verification JS chargé - Version avec amendes:', new Date().toISOString());
+
+// Fonction de test globale pour diagnostiquer le système
+window.testAmendeSystem = function() {
+    console.log('🧪 === TEST DU SYSTÈME D\'AMENDES ===');
+    console.log('1️⃣ Bootstrap disponible:', typeof bootstrap !== 'undefined');
+    console.log('2️⃣ showAmendeModal disponible:', typeof window.showAmendeModal === 'function');
+    console.log('3️⃣ Infractions chargées:', infractions.length);
+    console.log('4️⃣ Modal amendeModal existe:', !!document.getElementById('amendeModal'));
+    
+    if (infractions.length > 0) {
+        console.log('📋 Exemple d\'infraction:', infractions[0]);
+    } else {
+        console.warn('⚠️ Aucune infraction - Tentative de chargement...');
+        loadInfractions().then(success => {
+            console.log('Résultat du chargement:', success ? '✅ Succès' : '❌ Échec');
+            if (success) {
+                console.log('📋 Infractions maintenant disponibles:', infractions.length);
+            }
+        });
+    }
+    
+    console.log('✅ === FIN DU TEST ===');
+};
