@@ -167,6 +167,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (toggleBtn) {
             e.preventDefault();
+            e.stopPropagation(); // Empêcher la fermeture du dropdown
             const vehicleId = toggleBtn.getAttribute('data-vehicle-id');
             
             if (!vehicleId) {
@@ -255,6 +256,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         if (deleteBtn) {
             e.preventDefault();
+            e.stopPropagation(); // Empêcher la fermeture du dropdown
             const vehicleId = deleteBtn.getAttribute('data-vehicle-id');
             
             if (!vehicleId) {
