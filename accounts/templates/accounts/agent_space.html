@@ -403,8 +403,24 @@
                             <label for="amendeLieu" class="form-label fw-semibold">
                                 <i class="fas fa-map-marker-alt me-2"></i>Lieu de l'infraction *
                             </label>
-                            <input type="text" class="form-control" id="amendeLieu" name="lieu_infraction" 
-                                   placeholder="Ex: Avenue du Port, Kinshasa" required maxlength="200">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="amendeLieu" name="lieu_infraction" 
+                                       placeholder="Ex: Avenue du Port, Kinshasa" required maxlength="200">
+                                <button type="button" class="btn btn-primary" id="getLocationBtn" title="Obtenir ma position GPS">
+                                    <i class="fas fa-crosshairs me-1"></i>GPS
+                                </button>
+                            </div>
+                            <input type="hidden" id="amendeLatitude" name="latitude">
+                            <input type="hidden" id="amendeLongitude" name="longitude">
+                            <div id="locationInfo" class="form-text mt-2" style="display: none;">
+                                <i class="fas fa-map-pin me-1 text-success"></i>
+                                <span id="locationCoords" class="text-success fw-semibold"></span>
+                                <small class="text-muted ms-2" id="locationAccuracy"></small>
+                            </div>
+                            <div id="locationError" class="form-text mt-2 text-danger" style="display: none;">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                <span id="locationErrorMsg"></span>
+                            </div>
                         </div>
 
                         <div class="mb-3">

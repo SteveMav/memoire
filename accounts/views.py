@@ -660,6 +660,8 @@ def emettre_amende_agent(request):
             infraction_id = data.get('infraction_id')
             lieu_infraction = data.get('lieu_infraction', '')
             observations = data.get('observations', '')
+            latitude = data.get('latitude')
+            longitude = data.get('longitude')
             
             # Validation
             if not all([vehicle_id, infraction_id, lieu_infraction]):
@@ -692,6 +694,8 @@ def emettre_amende_agent(request):
                 vehicle=vehicle,
                 agent=request.user,
                 lieu_infraction=lieu_infraction,
+                latitude=latitude,
+                longitude=longitude,
                 observations=observations,
                 date_limite_paiement=datetime.now().date() + timedelta(days=30)
             )

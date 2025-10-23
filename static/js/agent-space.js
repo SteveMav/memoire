@@ -97,6 +97,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Gestionnaire pour le bouton de géolocalisation
+    const getLocationBtn = document.getElementById('getLocationBtn');
+    if (getLocationBtn) {
+        getLocationBtn.addEventListener('click', function() {
+            getCurrentLocation();
+        });
+    }
+
     // Recherche en temps réel (optionnel - avec délai)
     let searchTimeout;
     if (plateSearchInput) {
@@ -1151,6 +1159,10 @@ document.addEventListener('DOMContentLoaded', function() {
         submitAmendeBtn.disabled = true;
         submitAmendeBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Émission en cours...';
 
+        // Récupérer les coordonnées GPS si disponibles
+        const latitude = document.getElementById('amendeLatitude').value;
+        const longitude = document.getElementById('amendeLongitude').value;
+
         // Préparer les données
         const amendeData = {
             vehicle_id: vehicleId,
@@ -1158,6 +1170,12 @@ document.addEventListener('DOMContentLoaded', function() {
             lieu_infraction: lieu,
             observations: document.getElementById('amendeObservations').value.trim()
         };
+
+        // Ajouter les coordonnées GPS si elles sont disponibles
+        if (latitude && longitude) {
+            amendeData.latitude = parseFloat(latitude);
+            amendeData.longitude = parseFloat(longitude);
+        }
 
         // Envoyer la requête
         fetch('/accounts/emettre-amende/', {
@@ -1226,6 +1244,125 @@ document.addEventListener('DOMContentLoaded', function() {
         if (resultsContent) {
             resultsContent.insertAdjacentHTML('afterbegin', successHtml);
         }
+    }
+
+    /**
+     * Obtenir la géolocalisation actuelle de l'utilisateur
+     */
+    function getCurrentLocation() {
+        const locationBtn = document.getElementById('getLocationBtn');
+        const locationInfo = document.getElementById('locationInfo');
+        const locationError = document.getElementById('locationError');
+        const locationCoords = document.getElementById('locationCoords');
+        const locationAccuracy = document.getElementById('locationAccuracy');
+        const locationErrorMsg = document.getElementById('locationErrorMsg');
+        const latitudeInput = document.getElementById('amendeLatitude');
+        const longitudeInput = document.getElementById('amendeLongitude');
+        const lieuInput = document.getElementById('amendeLieu');
+
+        // Vérifier si la géolocalisation est supportée
+        if (!navigator.geolocation) {
+            locationError.style.display = 'block';
+            locationInfo.style.display = 'none';
+            locationErrorMsg.textContent = 'La géolocalisation n\'est pas supportée par votre navigateur.';
+            if (window.showError) {
+                window.showError('Géolocalisation non supportée');
+            }
+            return;
+        }
+
+        // Afficher un loader sur le bouton
+        const originalBtnContent = locationBtn.innerHTML;
+        locationBtn.disabled = true;
+        locationBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Localisation...';
+
+        // Masquer les messages précédents
+        locationInfo.style.display = 'none';
+        locationError.style.display = 'none';
+
+        // Options de géolocalisation pour une précision maximale
+        const options = {
+            enableHighAccuracy: true,  // Précision maximale
+            timeout: 10000,            // Timeout de 10 secondes
+            maximumAge: 0              // Pas de cache, position fraîche
+        };
+
+        // Obtenir la position
+        navigator.geolocation.getCurrentPosition(
+            // Succès
+            function(position) {
+                const latitude = position.coords.latitude;
+                const longitude = position.coords.longitude;
+                const accuracy = position.coords.accuracy;
+
+                // Stocker les coordonnées dans les champs cachés
+                latitudeInput.value = latitude.toFixed(6);
+                longitudeInput.value = longitude.toFixed(6);
+
+                // Afficher les coordonnées
+                locationCoords.textContent = `Lat: ${latitude.toFixed(6)}, Long: ${longitude.toFixed(6)}`;
+                locationAccuracy.textContent = `(Précision: ±${Math.round(accuracy)}m)`;
+                locationInfo.style.display = 'block';
+                locationError.style.display = 'none';
+
+                // Tenter de récupérer l'adresse via reverse geocoding (Nominatim - OpenStreetMap)
+                fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`, {
+                    headers: {
+                        'User-Agent': 'VehicleDetectionApp/1.0'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.display_name) {
+                        // Remplir automatiquement le champ lieu avec l'adresse
+                        lieuInput.value = data.display_name;
+                        if (window.showSuccess) {
+                            window.showSuccess(`Position GPS capturée avec succès (±${Math.round(accuracy)}m)`);
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.log('Reverse geocoding échoué, coordonnées GPS enregistrées:', error);
+                    if (window.showSuccess) {
+                        window.showSuccess(`Coordonnées GPS capturées (±${Math.round(accuracy)}m)`);
+                    }
+                });
+
+                // Restaurer le bouton
+                locationBtn.disabled = false;
+                locationBtn.innerHTML = originalBtnContent;
+            },
+            // Erreur
+            function(error) {
+                let errorMessage = '';
+                switch(error.code) {
+                    case error.PERMISSION_DENIED:
+                        errorMessage = 'Permission de géolocalisation refusée. Veuillez autoriser l\'accès à votre position.';
+                        break;
+                    case error.POSITION_UNAVAILABLE:
+                        errorMessage = 'Position indisponible. Vérifiez que le GPS est activé.';
+                        break;
+                    case error.TIMEOUT:
+                        errorMessage = 'Délai d\'attente dépassé. Réessayez.';
+                        break;
+                    default:
+                        errorMessage = 'Erreur inconnue lors de la géolocalisation.';
+                }
+
+                locationErrorMsg.textContent = errorMessage;
+                locationError.style.display = 'block';
+                locationInfo.style.display = 'none';
+
+                if (window.showError) {
+                    window.showError(errorMessage);
+                }
+
+                // Restaurer le bouton
+                locationBtn.disabled = false;
+                locationBtn.innerHTML = originalBtnContent;
+            },
+            options
+        );
     }
 });
 

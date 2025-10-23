@@ -150,6 +150,20 @@ class Amende(models.Model):
         max_length=200,
         verbose_name="Lieu de l'infraction"
     )
+    latitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        verbose_name="Latitude GPS"
+    )
+    longitude = models.DecimalField(
+        max_digits=9,
+        decimal_places=6,
+        null=True,
+        blank=True,
+        verbose_name="Longitude GPS"
+    )
     observations = models.TextField(
         blank=True,
         verbose_name="Observations"

@@ -494,8 +494,24 @@ function createAmendeModal() {
                                 <i class="fas fa-map-marker-alt text-info me-1"></i>
                                 Lieu de l'infraction *
                             </label>
-                            <input type="text" class="form-control" id="lieuInfraction" 
-                                   placeholder="Ex: Avenue Kasa-Vubu, Kinshasa" required>
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="lieuInfraction" 
+                                       placeholder="Ex: Avenue Kasa-Vubu, Kinshasa" required>
+                                <button type="button" class="btn btn-primary" id="getLocationBtnDetection" title="Obtenir ma position GPS">
+                                    <i class="fas fa-crosshairs me-1"></i>GPS
+                                </button>
+                            </div>
+                            <input type="hidden" id="detectionLatitude" name="latitude">
+                            <input type="hidden" id="detectionLongitude" name="longitude">
+                            <div id="detectionLocationInfo" class="form-text mt-2" style="display: none;">
+                                <i class="fas fa-map-pin me-1 text-success"></i>
+                                <span id="detectionLocationCoords" class="text-success fw-semibold"></span>
+                                <small class="text-muted ms-2" id="detectionLocationAccuracy"></small>
+                            </div>
+                            <div id="detectionLocationError" class="form-text mt-2 text-danger" style="display: none;">
+                                <i class="fas fa-exclamation-triangle me-1"></i>
+                                <span id="detectionLocationErrorMsg"></span>
+                            </div>
                         </div>
 
                         <div class="mb-3">
@@ -533,6 +549,7 @@ function createAmendeModal() {
     // Ajouter les event listeners
     document.getElementById('infractionSelect').addEventListener('change', onInfractionChange);
     document.getElementById('emettrAmendeBtn').addEventListener('click', emettrAmende);
+    document.getElementById('getLocationBtnDetection').addEventListener('click', getCurrentLocationDetection);
 }
 
 // Fonction pour remplir le select des infractions
@@ -661,6 +678,10 @@ async function emettrAmende() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Émission en cours...';
     
     try {
+        // Récupérer les coordonnées GPS si disponibles
+        const latitude = document.getElementById('detectionLatitude').value;
+        const longitude = document.getElementById('detectionLongitude').value;
+
         const requestData = {
             vehicle_id: currentVehicleForAmende.id,
             infraction_id: infractionId,
@@ -668,6 +689,12 @@ async function emettrAmende() {
             observations: observations,
             detection_id: currentVehicleForAmende.detection_id || null
         };
+
+        // Ajouter les coordonnées GPS si elles sont disponibles
+        if (latitude && longitude) {
+            requestData.latitude = parseFloat(latitude);
+            requestData.longitude = parseFloat(longitude);
+        }
         
         
         const response = await fetch('/detection/emettre-amende/', {
@@ -779,3 +806,122 @@ window.testAmendeSystem = function() {
     
     console.log('✅ === FIN DU TEST ===');
 };
+
+/**
+ * Obtenir la géolocalisation actuelle pour la page de détection
+ */
+function getCurrentLocationDetection() {
+    const locationBtn = document.getElementById('getLocationBtnDetection');
+    const locationInfo = document.getElementById('detectionLocationInfo');
+    const locationError = document.getElementById('detectionLocationError');
+    const locationCoords = document.getElementById('detectionLocationCoords');
+    const locationAccuracy = document.getElementById('detectionLocationAccuracy');
+    const locationErrorMsg = document.getElementById('detectionLocationErrorMsg');
+    const latitudeInput = document.getElementById('detectionLatitude');
+    const longitudeInput = document.getElementById('detectionLongitude');
+    const lieuInput = document.getElementById('lieuInfraction');
+
+    // Vérifier si la géolocalisation est supportée
+    if (!navigator.geolocation) {
+        locationError.style.display = 'block';
+        locationInfo.style.display = 'none';
+        locationErrorMsg.textContent = 'La géolocalisation n\'est pas supportée par votre navigateur.';
+        if (window.showError) {
+            window.showError('Géolocalisation non supportée');
+        }
+        return;
+    }
+
+    // Afficher un loader sur le bouton
+    const originalBtnContent = locationBtn.innerHTML;
+    locationBtn.disabled = true;
+    locationBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Localisation...';
+
+    // Masquer les messages précédents
+    locationInfo.style.display = 'none';
+    locationError.style.display = 'none';
+
+    // Options de géolocalisation pour une précision maximale
+    const options = {
+        enableHighAccuracy: true,  // Précision maximale
+        timeout: 10000,            // Timeout de 10 secondes
+        maximumAge: 0              // Pas de cache, position fraîche
+    };
+
+    // Obtenir la position
+    navigator.geolocation.getCurrentPosition(
+        // Succès
+        function(position) {
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            const accuracy = position.coords.accuracy;
+
+            // Stocker les coordonnées dans les champs cachés
+            latitudeInput.value = latitude.toFixed(6);
+            longitudeInput.value = longitude.toFixed(6);
+
+            // Afficher les coordonnées
+            locationCoords.textContent = `Lat: ${latitude.toFixed(6)}, Long: ${longitude.toFixed(6)}`;
+            locationAccuracy.textContent = `(Précision: ±${Math.round(accuracy)}m)`;
+            locationInfo.style.display = 'block';
+            locationError.style.display = 'none';
+
+            // Tenter de récupérer l'adresse via reverse geocoding (Nominatim - OpenStreetMap)
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`, {
+                headers: {
+                    'User-Agent': 'VehicleDetectionApp/1.0'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data && data.display_name) {
+                    // Remplir automatiquement le champ lieu avec l'adresse
+                    lieuInput.value = data.display_name;
+                    if (window.showSuccess) {
+                        window.showSuccess(`Position GPS capturée avec succès (±${Math.round(accuracy)}m)`);
+                    }
+                }
+            })
+            .catch(error => {
+                console.log('Reverse geocoding échoué, coordonnées GPS enregistrées:', error);
+                if (window.showSuccess) {
+                    window.showSuccess(`Coordonnées GPS capturées (±${Math.round(accuracy)}m)`);
+                }
+            });
+
+            // Restaurer le bouton
+            locationBtn.disabled = false;
+            locationBtn.innerHTML = originalBtnContent;
+        },
+        // Erreur
+        function(error) {
+            let errorMessage = '';
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMessage = 'Permission de géolocalisation refusée. Veuillez autoriser l\'accès à votre position.';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMessage = 'Position indisponible. Vérifiez que le GPS est activé.';
+                    break;
+                case error.TIMEOUT:
+                    errorMessage = 'Délai d\'attente dépassé. Réessayez.';
+                    break;
+                default:
+                    errorMessage = 'Erreur inconnue lors de la géolocalisation.';
+            }
+
+            locationErrorMsg.textContent = errorMessage;
+            locationError.style.display = 'block';
+            locationInfo.style.display = 'none';
+
+            if (window.showError) {
+                window.showError(errorMessage);
+            }
+
+            // Restaurer le bouton
+            locationBtn.disabled = false;
+            locationBtn.innerHTML = originalBtnContent;
+        },
+        options
+    );
+}
